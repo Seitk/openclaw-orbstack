@@ -279,25 +279,26 @@ echo ""
 echo -e "${YELLOW}按 Enter 继续...${NC}"
 read -r
 
-# Pre-create override file to prevent EBUSY migration error
-# docker-compose automatically merges override.yml when docker-setup.sh runs "docker compose up"
-info "预创建 override 文件（防止 EBUSY 迁移错误）..."
-vm_exec "cat > ~/moltbot/docker-compose.override.yml << 'EOF'
-services:
-  moltbot-gateway:
-    environment:
-      - MOLTBOT_STATE_DIR=/home/node/.clawdbot
-  moltbot-cli:
-    environment:
-      - MOLTBOT_STATE_DIR=/home/node/.clawdbot
-EOF"
-
 # Pre-create directories with correct ownership (container node user = uid 1000)
 vm_exec "mkdir -p ~/.clawdbot ~/.clawdbot/credentials ~/clawd"
 vm_exec "sudo chown -R 1000:1000 ~/.clawdbot ~/clawd"
 
 vm_exec "cd ~/moltbot && export CLAWDBOT_HOME_VOLUME=moltbot_home && sg docker -c './docker-setup.sh'"
 ok "配置向导完成"
+
+# Fix EBUSY: docker-setup.sh uses -f flag which ignores override files
+# So we patch docker-compose.yml directly and restart containers
+info "修复 EBUSY 迁移错误..."
+vm_exec 'cd ~/moltbot && sg docker -c "docker compose stop"'
+
+# Add MOLTBOT_STATE_DIR to both services in docker-compose.yml
+# This tells moltbot to skip the .clawdbot -> .moltbot migration
+vm_exec "cd ~/moltbot && sed -i '/moltbot-gateway:/,/^  [a-z]/{/environment:/a\\      MOLTBOT_STATE_DIR: /home/node/.clawdbot}' docker-compose.yml"
+vm_exec "cd ~/moltbot && sed -i '/moltbot-cli:/,/^  [a-z]/{/environment:/a\\      MOLTBOT_STATE_DIR: /home/node/.clawdbot}' docker-compose.yml"
+
+# Restart with the patched config
+vm_exec 'cd ~/moltbot && sg docker -c "docker compose up -d"'
+ok "EBUSY 修复完成"
 
 # ============================================================================
 # 步骤 8/8: 合并配置 + 创建便捷命令
