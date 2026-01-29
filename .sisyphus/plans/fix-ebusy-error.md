@@ -64,7 +64,7 @@ Modify the deployment script to patch docker-compose.yml after docker-setup.sh c
 
 ### Definition of Done
 - [x] Implementation complete (commit 5b52bbc)
-- [ ] User acceptance test: `moltbot-doctor` shows no EBUSY warning on fresh install
+- [ ] ⏸️ **BLOCKED** - User acceptance test: `moltbot-doctor` shows no EBUSY warning on fresh install (requires user to run deployment)
 
 ---
 
@@ -121,13 +121,26 @@ grep -c "MOLTBOT_STATE_DIR" moltbot-orbstack-setup.sh  # ✅ returns 3
 grep -c "docker compose stop" moltbot-orbstack-setup.sh  # ✅ returns 1
 ```
 
-### Manual Verification (USER MUST RUN)
+### Manual Verification (USER MUST RUN) ⏸️ BLOCKED
+
+**Status**: ⏸️ Awaiting user testing
+
+**Blocker**: Cannot run from agent environment - requires OrbStack on user's Mac, interactive wizard, and moltbot-doctor command.
+
+**User Action Required**:
 ```bash
 orb delete moltbot-vm
 bash moltbot-orbstack-setup.sh
+# Complete interactive wizard (API keys, bot tokens)
 moltbot-doctor
 # Expected: No EBUSY warning
 ```
+
+**What to verify**:
+- [ ] Deployment completes successfully
+- [ ] Interactive wizard accepts credentials
+- [ ] `moltbot-doctor` runs without errors
+- [ ] **NO "Failed to move legacy state dir" warning appears**
 
 ---
 
@@ -178,3 +191,91 @@ This:
 | 80c8361 | `.env` file | ❌ Failed - .env only does variable substitution |
 | 182affa | `docker-compose.override.yml` | ❌ Failed - docker-setup.sh uses -f flag |
 | 5b52bbc | sed patch docker-compose.yml | ✅ Success - patches after creation |
+
+---
+
+## HANDOFF TO USER 👤
+
+### Implementation Status: ✅ COMPLETE
+
+All code changes have been implemented and verified:
+- ✅ Commit 5b52bbc: sed patching approach implemented
+- ✅ Automated verification: bash syntax, grep checks all passed
+- ✅ Code review: changes match requirements
+- ✅ Documentation: learnings and decisions recorded in notepad
+
+### Remaining: User Acceptance Test ⏸️
+
+**What you need to do**:
+
+1. **Delete existing VM** (if any):
+   ```bash
+   orb delete moltbot-vm
+   ```
+
+2. **Run deployment script**:
+   ```bash
+   bash moltbot-orbstack-setup.sh
+   ```
+
+3. **Complete interactive wizard**:
+   - Provide AI model API key (OpenCode Zen / Anthropic / OpenAI)
+   - Provide Telegram Bot Token (from @BotFather) or other platform credentials
+
+4. **Run diagnostics**:
+   ```bash
+   moltbot-doctor
+   ```
+
+5. **Verify success**:
+   - ✅ Deployment completes without errors
+   - ✅ Wizard accepts credentials
+   - ✅ `moltbot-doctor` runs successfully
+   - ✅ **NO "Failed to move legacy state dir" warning appears**
+
+### Expected Behavior
+
+**First container start** (during docker-setup.sh):
+- EBUSY warning **may** be logged once (this is acceptable)
+- Containers will be stopped and restarted automatically
+
+**After restart and all future restarts**:
+- NO EBUSY warning
+- `MOLTBOT_STATE_DIR` environment variable is set
+- Migration is skipped
+
+### If Test Fails
+
+If you still see EBUSY warnings after deployment:
+
+1. Check if the patch was applied:
+   ```bash
+   orb -m moltbot-vm bash -c "grep MOLTBOT_STATE_DIR ~/moltbot/docker-compose.yml"
+   ```
+   Expected: Should show 2 matches (one for gateway, one for cli)
+
+2. Check container environment:
+   ```bash
+   orb -m moltbot-vm bash -c "cd ~/moltbot && sg docker -c 'docker compose config' | grep -A2 MOLTBOT_STATE_DIR"
+   ```
+   Expected: Should show the environment variable in both services
+
+3. Report back with:
+   - Full output of `moltbot-doctor`
+   - Output of the grep commands above
+   - Any error messages during deployment
+
+### Success Criteria
+
+✅ Test passes when `moltbot-doctor` output contains **NO** lines like:
+```
+Failed to move legacy state dir (/home/node/.clawdbot → /home/node/.moltbot): Error: EBUSY
+```
+
+---
+
+## Agent Work Complete 🤖
+
+All implementation work is done. The fix is ready for user testing.
+
+**Next step**: User runs deployment and confirms no EBUSY warning.
