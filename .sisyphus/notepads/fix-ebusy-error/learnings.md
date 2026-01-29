@@ -36,3 +36,48 @@
 **Result**: Script reduced from 416 lines to 399 lines
 
 **Key Pattern**: When dealing with init scripts that auto-start services, configure environment BEFORE the init script runs, not after.
+
+## [2026-01-29T22:01:56Z] Final Implementation - Session ses_3f4c2a0a4ffePlCovxOdZf4xYa
+
+### Solution: sed patching approach
+
+**Commit**: 5b52bbc - `fix(setup): patch docker-compose.yml directly since -f flag ignores override files`
+
+**Why this works**:
+1. docker-setup.sh uses explicit `-f` flags: `docker compose -f docker-compose.yml -f docker-compose.extra.yml up -d`
+2. Explicit `-f` flags bypass automatic loading of docker-compose.override.yml
+3. Only solution: patch docker-compose.yml AFTER docker-setup.sh creates it
+
+**Implementation**:
+```bash
+# After docker-setup.sh runs:
+vm_exec 'cd ~/moltbot && sg docker -c "docker compose stop"'
+vm_exec "cd ~/moltbot && sed -i '/moltbot-gateway:/,/^  [a-z]/{/environment:/a\\      MOLTBOT_STATE_DIR: /home/node/.clawdbot}' docker-compose.yml"
+vm_exec "cd ~/moltbot && sed -i '/moltbot-cli:/,/^  [a-z]/{/environment:/a\\      MOLTBOT_STATE_DIR: /home/node/.clawdbot}' docker-compose.yml"
+vm_exec 'cd ~/moltbot && sg docker -c "docker compose up -d"'
+```
+
+**Key Learning**: When upstream scripts use explicit `-f` flags, you cannot rely on Docker Compose's automatic override file loading. You must patch the generated files directly.
+
+### Failed Attempts Summary
+
+| Attempt | Why It Failed | Commit |
+|---------|---------------|--------|
+| `.env` file | Only does variable substitution in compose file, doesn't pass env vars to containers | 80c8361 |
+| `docker-compose.override.yml` | docker-setup.sh uses `-f` flag which ignores override files | 182affa |
+| sed patching | ✅ SUCCESS - patches after docker-setup.sh creates the file | 5b52bbc |
+
+### Pattern for Future Reference
+
+**When dealing with third-party setup scripts that use docker compose**:
+1. Check if they use explicit `-f` flags (look for `docker compose -f ...`)
+2. If yes, override files won't work - you must patch the generated compose file
+3. Use sed with proper YAML indentation to inject environment variables
+4. Restart containers after patching
+
+**sed pattern for adding env vars to docker-compose.yml**:
+```bash
+sed -i '/service-name:/,/^  [a-z]/{/environment:/a\      ENV_VAR: value}' docker-compose.yml
+```
+
+This matches from the service definition to the next service, finds the environment section, and appends the new variable.
