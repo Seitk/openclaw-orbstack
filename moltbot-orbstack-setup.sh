@@ -279,9 +279,18 @@ echo ""
 echo -e "${YELLOW}按 Enter 继续...${NC}"
 read -r
 
-# Pre-configure .env to prevent EBUSY (PR #3513 approach)
-info "预配置环境变量（防止 EBUSY 迁移错误）..."
-vm_exec "echo 'MOLTBOT_STATE_DIR=/home/node/.clawdbot' >> ~/moltbot/.env"
+# Pre-create override file to prevent EBUSY migration error
+# docker-compose automatically merges override.yml when docker-setup.sh runs "docker compose up"
+info "预创建 override 文件（防止 EBUSY 迁移错误）..."
+vm_exec "cat > ~/moltbot/docker-compose.override.yml << 'EOF'
+services:
+  moltbot-gateway:
+    environment:
+      - MOLTBOT_STATE_DIR=/home/node/.clawdbot
+  moltbot-cli:
+    environment:
+      - MOLTBOT_STATE_DIR=/home/node/.clawdbot
+EOF"
 
 # Pre-create directories with correct ownership (container node user = uid 1000)
 vm_exec "mkdir -p ~/.clawdbot ~/.clawdbot/credentials ~/clawd"
