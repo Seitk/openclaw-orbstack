@@ -287,14 +287,30 @@ vm_exec "cd ~/moltbot && export CLAWDBOT_HOME_VOLUME=moltbot_home && sg docker -
 ok "配置向导完成"
 
 # Fix EBUSY: docker-setup.sh uses -f flag which ignores override files
-# So we patch docker-compose.yml directly and restart containers
+# So we patch docker-compose.yml directly using Python (more reliable than sed for YAML)
 info "修复 EBUSY 迁移错误..."
 vm_exec 'cd ~/moltbot && sg docker -c "docker compose stop"'
 
-# Add MOLTBOT_STATE_DIR to both services in docker-compose.yml
-# This tells moltbot to skip the .clawdbot -> .moltbot migration
-vm_exec "cd ~/moltbot && sed -i '/moltbot-gateway:/,/^  [a-z]/{/environment:/a\\      MOLTBOT_STATE_DIR: /home/node/.clawdbot}' docker-compose.yml"
-vm_exec "cd ~/moltbot && sed -i '/moltbot-cli:/,/^  [a-z]/{/environment:/a\\      MOLTBOT_STATE_DIR: /home/node/.clawdbot}' docker-compose.yml"
+# Add MOLTBOT_STATE_DIR to both services using Python
+# This is more reliable than sed for modifying YAML structure
+vm_exec 'cd ~/moltbot && python3 << "PYEOF"
+import yaml
+
+with open("docker-compose.yml", "r") as f:
+    data = yaml.safe_load(f)
+
+# Add MOLTBOT_STATE_DIR to both services
+for svc in ["moltbot-gateway", "moltbot-cli"]:
+    if svc in data.get("services", {}):
+        if "environment" not in data["services"][svc]:
+            data["services"][svc]["environment"] = {}
+        data["services"][svc]["environment"]["MOLTBOT_STATE_DIR"] = "/home/node/.clawdbot"
+
+with open("docker-compose.yml", "w") as f:
+    yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+
+print("✓ MOLTBOT_STATE_DIR added to docker-compose.yml")
+PYEOF'
 
 # Restart with the patched config
 vm_exec 'cd ~/moltbot && sg docker -c "docker compose up -d"'
