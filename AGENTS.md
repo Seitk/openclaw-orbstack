@@ -1,6 +1,6 @@
-# MoltbotOrb - Agent Instructions
+# OpenClawOrb - Agent Instructions
 
-Moltbot OrbStack deployment toolkit. One-click deployment of Moltbot chatbot platform on macOS via OrbStack + Docker.
+OpenClaw OrbStack deployment toolkit. One-click deployment of OpenClaw chatbot platform on macOS via OrbStack + Docker.
 
 ## Tech Stack
 
@@ -15,9 +15,9 @@ Moltbot OrbStack deployment toolkit. One-click deployment of Moltbot chatbot pla
 ## Project Structure
 
 ```
-MoltbotOrb/
-├── moltbot-orbstack-setup.sh    # Main deployment script (8 steps)
-├── README-moltbot-orbstack.md   # Chinese documentation
+OpenClawOrb/
+├── openclaw-orbstack-setup.sh    # Main deployment script (8 steps)
+├── README-openclaw-orbstack.md   # Chinese documentation
 ├── opencode.json.example        # OpenCode project config template
 ├── .opencode/                   # OpenCode agent/skill/command stubs
 │   ├── agents/                  # Custom agent definitions (empty)
@@ -42,31 +42,31 @@ This is a deployment toolkit - no compilation, linting, or test framework.
 
 ```bash
 # Validate bash syntax (manual check)
-bash -n moltbot-orbstack-setup.sh
+bash -n openclaw-orbstack-setup.sh
 
 # Run shellcheck (if installed)
-shellcheck moltbot-orbstack-setup.sh
+shellcheck openclaw-orbstack-setup.sh
 
 # Execute deployment (interactive)
-bash moltbot-orbstack-setup.sh
+bash openclaw-orbstack-setup.sh
 ```
 
 ### OrbStack VM Management (after deployment)
 
 ```bash
 # Mac-side commands (created by script in ~/bin/)
-moltbot-status    # Container status
-moltbot-logs      # Live logs
-moltbot-restart   # Restart gateway
-moltbot-stop      # Stop all containers
-moltbot-start     # Start containers
-moltbot-shell     # SSH into VM
-moltbot-doctor    # Diagnostics
+openclaw-status    # Container status
+openclaw-logs      # Live logs
+openclaw-restart   # Restart gateway
+openclaw-stop      # Stop all containers
+openclaw-start     # Start containers
+openclaw-shell     # SSH into VM
+openclaw-doctor    # Diagnostics
 
 # Direct OrbStack commands
 orb list                          # List VMs
-orb -m moltbot-vm bash            # Enter VM shell
-orb -m moltbot-vm bash -c "..."   # Execute command in VM
+orb -m openclaw-vm bash            # Enter VM shell
+orb -m openclaw-vm bash -c "..."   # Execute command in VM
 ```
 
 ## Code Style Guidelines
@@ -82,11 +82,11 @@ set -e  # Exit on error (REQUIRED)
 **Variable Naming**
 ```bash
 # Constants: UPPER_SNAKE_CASE
-VM_NAME="moltbot-vm"
+VM_NAME="openclaw-vm"
 TOTAL_STEPS=8
 
 # Local variables: lower_snake_case
-local config_path="$HOME/.clawdbot/config.json"
+local config_path="$HOME/.openclaw/config.json"
 ```
 
 **Function Naming**
@@ -117,8 +117,8 @@ echo -e "${GREEN}Success${NC}"
 **Quoting**
 ```bash
 # ALWAYS quote variables (especially paths)
-vm_exec "cd $HOME/moltbot && docker build ."  # WRONG
-vm_exec "cd ~/moltbot && docker build ."      # CORRECT (~ expands in remote shell)
+vm_exec "cd $HOME/openclaw && docker build ."  # WRONG
+vm_exec "cd ~/openclaw && docker build ."      # CORRECT (~ expands in remote shell)
 
 # Use single quotes for literal strings
 cat << 'EOF'    # Variables NOT expanded
@@ -180,7 +180,7 @@ fi
 vm_exec "some_command" || true  # Don't fail if command fails
 
 # Check file/directory exists
-if vm_exec "test -d ~/moltbot"; then
+if vm_exec "test -d ~/openclaw"; then
     # directory exists
 fi
 ```
@@ -215,7 +215,7 @@ The deployment script creates a secure sandbox config with these defaults:
 # NEVER commit these
 .claude/settings.local.json  # Local Claude settings
 .opencode/*.local.*          # Local OpenCode settings
-~/.clawdbot/config.json      # Contains API keys (in VM)
+~/.openclaw/config.json      # Contains API keys (in VM)
 ```
 
 ## Adding New Features
@@ -247,15 +247,15 @@ new_helper() {
 
 ```bash
 # Dry run - check syntax only
-bash -n moltbot-orbstack-setup.sh
+bash -n openclaw-orbstack-setup.sh
 
 # Full deployment test (requires OrbStack)
 # WARNING: Creates real VM and containers
-bash moltbot-orbstack-setup.sh
+bash openclaw-orbstack-setup.sh
 
 # Clean slate test
-orb delete moltbot-vm  # Remove VM
-bash moltbot-orbstack-setup.sh  # Fresh install
+orb delete openclaw-vm  # Remove VM
+bash openclaw-orbstack-setup.sh  # Fresh install
 ```
 
 ## Common Patterns
@@ -268,7 +268,7 @@ vm_exec "docker ps"
 
 # Multi-line script via heredoc
 orb -m "$VM_NAME" bash << 'REMOTE_EOF'
-cd ~/moltbot
+cd ~/openclaw
 docker compose up -d
 REMOTE_EOF
 ```
@@ -299,15 +299,15 @@ fi
 |---------|-------|-----|
 | `orb: command not found` | OrbStack not installed | Install from orbstack.dev |
 | Docker permission denied | User not in docker group | `sudo usermod -aG docker $USER` |
-| EBUSY on rename | Bind mount conflict | Script pre-sets `MOLTBOT_STATE_DIR` to skip migration |
-| Container won't start | Config merge failed | Check `moltbot-logs` output |
+| EBUSY on rename | Bind mount conflict | Script pre-sets `OPENCLAW_STATE_DIR` to skip migration |
+| Container won't start | Config merge failed | Check `openclaw-logs` output |
 
 ### Debug Mode
 
 ```bash
 # Verbose execution
-bash -x moltbot-orbstack-setup.sh
+bash -x openclaw-orbstack-setup.sh
 
 # Check VM state
-orb -m moltbot-vm bash -c "docker compose -f ~/moltbot/docker-compose.yml config"
+orb -m openclaw-vm bash -c "docker compose -f ~/openclaw/docker-compose.yml config"
 ```

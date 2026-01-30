@@ -1,6 +1,6 @@
-# Moltbot OrbStack 部署
+# OpenClaw OrbStack 部署
 
-在 Mac 上通过 OrbStack 一键部署 Moltbot，自带 Docker 沙箱安全隔离。
+在 Mac 上通过 OrbStack 一键部署 OpenClaw，自带 Docker 沙箱安全隔离。
 
 ## 前置条件
 
@@ -16,7 +16,7 @@
 打开「终端」（在启动台搜索"终端"或"Terminal"），输入：
 
 ```bash
-bash moltbot-orbstack-setup.sh
+bash openclaw-orbstack-setup.sh
 ```
 
 > 如果脚本不在当前目录，把文件直接拖进终端窗口，会自动填入完整路径。
@@ -25,31 +25,31 @@ bash moltbot-orbstack-setup.sh
 
 1. 打开「终端」
 2. 输入 `bash `（注意 bash 后面有个空格）
-3. 把 `moltbot-orbstack-setup.sh` 文件从 Finder 拖进终端窗口
+3. 把 `openclaw-orbstack-setup.sh` 文件从 Finder 拖进终端窗口
 4. 按回车
 
 **方式 3 — 右键打开**
 
-1. 在 Finder 中右键点击 `moltbot-orbstack-setup.sh`
+1. 在 Finder 中右键点击 `openclaw-orbstack-setup.sh`
 2. 选择「打开方式」>「终端」
-3. 如果看不到终端选项，先运行一次 `chmod +x moltbot-orbstack-setup.sh`
+3. 如果看不到终端选项，先运行一次 `chmod +x openclaw-orbstack-setup.sh`
 
 ## 脚本做了什么
 
 | 步骤 | 操作 | 说明 |
 |------|------|------|
 | 1/8 | 检查 OrbStack | 确认 `orb` 命令可用 |
-| 2/8 | 创建 Ubuntu VM | OrbStack 轻量虚拟机 `moltbot-vm` |
+| 2/8 | 创建 Ubuntu VM | OrbStack 轻量虚拟机 `openclaw-vm` |
 | 3/8 | 安装 Docker | VM 内安装 Docker Engine（官方脚本） |
-| 4/8 | 克隆 Moltbot | 从 GitHub 拉取源码到 `~/moltbot` |
-| 5/8 | 构建镜像 | `moltbot:local` + `moltbot-sandbox:bookworm-slim` |
+| 4/8 | 克隆 OpenClaw | 从 GitHub 拉取源码到 `~/openclaw` |
+| 5/8 | 构建镜像 | `openclaw:local` + `openclaw-sandbox:bookworm-slim` |
 | 6/8 | 写入沙箱配置 | 容器隔离、资源限制、工具权限（见下表） |
 | 7/8 | 配置向导 | 输入 AI 模型 API Key（OpenCode Zen / Anthropic / OpenAI 等）和聊天平台凭据 |
 | 8/8 | 合并 + 便捷命令 | 配置合并，创建 Mac 端快捷命令 |
 
 ## 沙箱安全配置
 
-配置文件: `~/.clawdbot/sandbox-config.json`（VM 内）
+配置文件: `~/.openclaw/sandbox-config.json`（VM 内）
 
 | 设置项 | 值 | 含义 |
 |--------|-----|------|
@@ -84,28 +84,28 @@ echo 'export PATH="$HOME/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
 
 | 命令 | 功能 |
 |------|------|
-| `moltbot-status` | 查看服务状态 |
-| `moltbot-logs` | 实时日志 |
-| `moltbot-restart` | 重启服务 |
-| `moltbot-stop` | 停止服务 |
-| `moltbot-start` | 启动服务 |
-| `moltbot-shell` | 进入 VM 终端 |
-| `moltbot-doctor` | 运行诊断 |
+| `openclaw-status` | 查看服务状态 |
+| `openclaw-logs` | 实时日志 |
+| `openclaw-restart` | 重启服务 |
+| `openclaw-stop` | 停止服务 |
+| `openclaw-start` | 启动服务 |
+| `openclaw-shell` | 进入 VM 终端 |
+| `openclaw-doctor` | 运行诊断 |
 
 ### 访问地址
 
-Web 控制台: `http://moltbot-vm.orb.local:18789`
+Web 控制台: `http://openclaw-vm.orb.local:18789`
 
 ## 自定义配置
 
-进入 VM 后编辑 `~/.clawdbot/config.json`：
+进入 VM 后编辑 `~/.openclaw/config.json`：
 
 ```bash
 # 进入 VM
-moltbot-shell
+openclaw-shell
 
 # 编辑配置
-nano ~/.clawdbot/config.json
+nano ~/.openclaw/config.json
 ```
 
 常见调整：
@@ -132,7 +132,7 @@ nano ~/.clawdbot/config.json
 修改后重启：
 
 ```bash
-docker compose restart moltbot-gateway
+docker compose restart openclaw-gateway
 ```
 
 ## 故障排查
@@ -140,7 +140,7 @@ docker compose restart moltbot-gateway
 ### Docker 权限问题
 
 ```bash
-moltbot-shell
+openclaw-shell
 sudo usermod -aG docker $USER
 newgrp docker
 ```
@@ -148,14 +148,14 @@ newgrp docker
 ### 镜像构建失败
 
 ```bash
-moltbot-shell
+openclaw-shell
 docker system prune -a
-cd ~/moltbot && docker build -t moltbot:local -f Dockerfile .
+cd ~/openclaw && docker build -t openclaw:local -f Dockerfile .
 ```
 
 ### 服务无法启动
 
 ```bash
-moltbot-logs      # 查看日志
-moltbot-doctor    # 运行诊断
+openclaw-logs      # 查看日志
+openclaw-doctor    # 运行诊断
 ```

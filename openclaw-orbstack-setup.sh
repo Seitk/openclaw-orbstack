@@ -1,9 +1,9 @@
 #!/bin/bash
 # ============================================================================
-# Moltbot OrbStack 一键部署脚本
+# OpenClaw OrbStack 一键部署脚本
 #
 # 在 Mac 终端运行，自动完成全部部署：
-#   bash moltbot-orbstack-setup.sh
+#   bash openclaw-orbstack-setup.sh
 #
 # 前置条件：
 #   - macOS 12.3+
@@ -11,9 +11,9 @@
 #
 # 脚本共 8 步：
 #   1. 检查 OrbStack         — 确认 orb 命令可用
-#   2. 创建 Ubuntu VM        — OrbStack 轻量虚拟机 moltbot-vm
+#   2. 创建 Ubuntu VM        — OrbStack 轻量虚拟机 openclaw-vm
 #   3. 安装 Docker           — VM 内安装 Docker Engine
-#   4. 克隆 Moltbot          — 从 GitHub 拉取源码
+#   4. 克隆 OpenClaw          — 从 GitHub 拉取源码
 #   5. 构建镜像              — 主程序 + 沙箱容器镜像
 #   6. 写入沙箱安全配置       — 容器隔离、资源限制、工具权限
 #   7. 运行配置向导           — 设置 API Key 和聊天平台
@@ -31,7 +31,7 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 # --- 配置 ---
-VM_NAME="moltbot-vm"
+VM_NAME="openclaw-vm"
 VM_DISTRO="ubuntu"
 TOTAL_STEPS=8
 
@@ -66,7 +66,7 @@ ok "OrbStack 已安装: $(orb version 2>/dev/null || echo 'unknown')"
 
 # ============================================================================
 # 步骤 2/8: 创建 Ubuntu VM
-#   - 虚拟机名称: moltbot-vm
+#   - 虚拟机名称: openclaw-vm
 #   - 系统: Ubuntu (OrbStack 默认最新 LTS)
 #   - 如果已存在则直接启动
 # ============================================================================
@@ -106,39 +106,49 @@ vm_exec "sudo systemctl enable docker && sudo systemctl start docker" || true
 ok "Docker 服务已启动"
 
 # ============================================================================
-# 步骤 4/8: 克隆 Moltbot 仓库
-#   - 源码地址: https://github.com/moltbot/moltbot.git
-#   - 克隆到 VM 的 ~/moltbot 目录
+# 步骤 4/8: 克隆 OpenClaw 仓库
+#   - 源码地址: https://github.com/openclaw/openclaw.git
+#   - 克隆到 VM 的 ~/openclaw 目录
 #   - 如果已存在则 git pull 更新
 # ============================================================================
-step 4 "获取 Moltbot 源码"
+step 4 "获取 OpenClaw 源码"
 
-if vm_exec "test -d ~/moltbot"; then
+if vm_exec "test -d ~/openclaw"; then
     info "仓库已存在，拉取最新代码..."
-    vm_exec "cd ~/moltbot && git pull"
+    vm_exec "cd ~/openclaw && git pull"
 else
     info "克隆仓库..."
-    vm_exec "git clone https://github.com/moltbot/moltbot.git ~/moltbot"
+    vm_exec "git clone https://github.com/openclaw/openclaw.git ~/openclaw"
 fi
 
-ok "源码已就绪: ~/moltbot"
+ok "源码已就绪: ~/openclaw"
 
 # ============================================================================
 # 步骤 5/8: 构建 Docker 镜像
 #   构建两个镜像:
-#   - moltbot:local           — 主程序（网关 + CLI）
-#   - moltbot-sandbox:bookworm-slim — 沙箱执行环境（Debian Bookworm 精简版）
+#   - openclaw:local           — 主程序（网关 + CLI）
+#   - openclaw-sandbox:bookworm-slim — 沙箱执行环境（Debian Bookworm 精简版）
 # ============================================================================
 step 5 "构建 Docker 镜像"
 
-info "构建主镜像 moltbot:local ..."
-vm_exec "cd ~/moltbot && sg docker -c 'docker build -t moltbot:local -f Dockerfile .'"
+info "构建主镜像 openclaw:local ..."
+vm_exec "cd ~/openclaw && sg docker -c 'docker build -t openclaw:local -f Dockerfile .'"
 ok "主镜像构建完成"
 
-info "构建沙箱镜像 moltbot-sandbox:bookworm-slim ..."
-vm_exec "cd ~/moltbot && sg docker -c './scripts/sandbox-setup.sh'" 2>/dev/null || \
-vm_exec "cd ~/moltbot && sg docker -c 'docker build -t moltbot-sandbox:bookworm-slim -f Dockerfile.sandbox .'" || true
+info "构建沙箱镜像 openclaw-sandbox:bookworm-slim ..."
+vm_exec "cd ~/openclaw && sg docker -c './scripts/sandbox-setup.sh'" 2>/dev/null || \
+vm_exec "cd ~/openclaw && sg docker -c 'docker build -t openclaw-sandbox:bookworm-slim -f Dockerfile.sandbox .'" || true
 ok "沙箱镜像构建完成"
+
+info "构建浏览器沙箱镜像 openclaw-sandbox-browser:bookworm-slim ..."
+vm_exec "cd ~/openclaw && sg docker -c './scripts/sandbox-browser-setup.sh'" 2>/dev/null || \
+vm_exec "cd ~/openclaw && sg docker -c 'docker build -t openclaw-sandbox-browser:bookworm-slim -f Dockerfile.sandbox-browser .'" || true
+ok "浏览器沙箱镜像构建完成"
+
+info "构建通用沙箱镜像 openclaw-sandbox-common:bookworm-slim ..."
+vm_exec "cd ~/openclaw && sg docker -c './scripts/sandbox-common-setup.sh'" 2>/dev/null || \
+vm_exec "cd ~/openclaw && sg docker -c 'docker build -t openclaw-sandbox-common:bookworm-slim -f Dockerfile.sandbox-common .'" || true
+ok "通用沙箱镜像构建完成"
 
 # ============================================================================
 # 步骤 6/8: 写入沙箱安全配置
@@ -152,7 +162,7 @@ ok "沙箱镜像构建完成"
 #   │ mode            │ non-main                 │ 非主会话在沙箱中执行           │
 #   │ scope           │ agent                    │ 每个 Agent 一个独立容器        │
 #   │ workspaceAccess │ none                     │ 沙箱不访问宿主工作区           │
-#   │ workspaceRoot   │ ~/.clawdbot/sandboxes    │ 沙箱工作区存储目录             │
+#   │ workspaceRoot   │ ~/.openclaw/sandboxes    │ 沙箱工作区存储目录             │
 #   │ network         │ none                     │ 容器无网络访问                │
 #   │ readOnlyRoot    │ true                     │ 根文件系统只读                │
 #   │ capDrop         │ ALL                      │ 放弃所有 Linux capabilities   │
@@ -172,11 +182,11 @@ ok "沙箱镜像构建完成"
 step 6 "准备沙箱安全配置"
 
 # 先在宿主写好配置文件，步骤 7 docker-setup.sh 运行后再合并
-# 使用 CLAWDBOT_HOME_VOLUME 让容器自由管理 /home/node（避免 bind mount 的权限和 rename 问题）
-vm_exec 'mkdir -p ~/moltbot-sandbox-config'
+# 使用 OPENCLAW_HOME_VOLUME 让容器自由管理 /home/node（避免 bind mount 的权限和 rename 问题）
+vm_exec 'mkdir -p ~/openclaw-sandbox-config'
 
 orb -m "$VM_NAME" bash << 'REMOTE_EOF'
-cat > ~/moltbot-sandbox-config/sandbox-config.json << 'EOFCONFIG'
+cat > ~/openclaw-sandbox-config/sandbox-config.json << 'EOFCONFIG'
 {
   "agents": {
     "defaults": {
@@ -184,10 +194,10 @@ cat > ~/moltbot-sandbox-config/sandbox-config.json << 'EOFCONFIG'
         "mode": "non-main",
         "scope": "agent",
         "workspaceAccess": "none",
-        "workspaceRoot": "~/.clawdbot/sandboxes",
+        "workspaceRoot": "~/.openclaw/sandboxes",
         "docker": {
-          "image": "moltbot-sandbox:bookworm-slim",
-          "containerPrefix": "moltbot-sbx-",
+          "image": "openclaw-sandbox:bookworm-slim",
+          "containerPrefix": "openclaw-sbx-",
           "workdir": "/workspace",
           "readOnlyRoot": true,
           "tmpfs": ["/tmp", "/var/tmp", "/run"],
@@ -207,7 +217,8 @@ cat > ~/moltbot-sandbox-config/sandbox-config.json << 'EOFCONFIG'
           }
         },
         "browser": {
-          "enabled": false
+          "enabled": true,
+          "image": "openclaw-sandbox-browser:bookworm-slim"
         },
         "prune": {
           "idleHours": 24,
@@ -230,10 +241,10 @@ cat > ~/moltbot-sandbox-config/sandbox-config.json << 'EOFCONFIG'
           "sessions_history",
           "sessions_send",
           "sessions_spawn",
-          "session_status"
+          "session_status",
+          "browser"
         ],
         "deny": [
-          "browser",
           "canvas",
           "nodes",
           "cron",
@@ -247,7 +258,7 @@ cat > ~/moltbot-sandbox-config/sandbox-config.json << 'EOFCONFIG'
 EOFCONFIG
 REMOTE_EOF
 
-info "沙箱配置已准备: ~/moltbot-sandbox-config/sandbox-config.json"
+info "沙箱配置已准备: ~/openclaw-sandbox-config/sandbox-config.json"
 info ""
 info "安全设置:"
 info "  隔离模式     non-main     非主会话在沙箱中执行"
@@ -262,11 +273,11 @@ ok "沙箱配置已就绪"
 
 # ============================================================================
 # 步骤 7/8: 运行配置向导
-#   - 调用 Moltbot 官方 docker-setup.sh
+#   - 调用 OpenClaw 官方 docker-setup.sh
 #   - 需要输入: AI 模型 API Key + 聊天平台凭据 (Telegram/WhatsApp/...)
 #   - 支持: OpenCode Zen / Anthropic / OpenAI 等多种提供商
-#   - 设置 CLAWDBOT_HOME_VOLUME=moltbot_home 使用 Docker named volume
-#     这样容器内 /home/node 整体持久化，可以自由完成 .clawdbot → .moltbot 迁移
+#   - 设置 OPENCLAW_HOME_VOLUME=openclaw_home 使用 Docker named volume
+#     这样容器内 /home/node 整体持久化，可以自由完成 配置迁移
 #   - 向导会生成 config.json 和 docker-compose.yml
 # ============================================================================
 step 7 "运行配置向导"
@@ -280,40 +291,40 @@ echo -e "${YELLOW}按 Enter 继续...${NC}"
 read -r
 
 # Pre-create directories with correct ownership (container node user = uid 1000)
-vm_exec "mkdir -p ~/.clawdbot ~/.clawdbot/credentials ~/clawd"
-vm_exec "sudo chown -R 1000:1000 ~/.clawdbot ~/clawd"
+vm_exec "mkdir -p ~/.openclaw ~/.openclaw/credentials ~/.openclaw/workspace"
+vm_exec "sudo chown -R 1000:1000 ~/.openclaw ~/.openclaw/workspace"
 
-vm_exec "cd ~/moltbot && export CLAWDBOT_HOME_VOLUME=moltbot_home && sg docker -c './docker-setup.sh'"
+vm_exec "cd ~/openclaw && export OPENCLAW_HOME_VOLUME=openclaw_home && sg docker -c './docker-setup.sh'"
 ok "配置向导完成"
 
 # Fix EBUSY: docker-setup.sh uses -f flag which ignores override files
 # So we patch docker-compose.yml directly using Python (more reliable than sed for YAML)
 info "修复 EBUSY 迁移错误..."
-vm_exec 'cd ~/moltbot && sg docker -c "docker compose stop"'
+vm_exec 'cd ~/openclaw && sg docker -c "docker compose stop"'
 
-# Add MOLTBOT_STATE_DIR to both services using Python
+# Add OPENCLAW_STATE_DIR to both services using Python
 # This is more reliable than sed for modifying YAML structure
-vm_exec 'cd ~/moltbot && python3 << "PYEOF"
+vm_exec 'cd ~/openclaw && python3 << "PYEOF"
 import yaml
 
 with open("docker-compose.yml", "r") as f:
     data = yaml.safe_load(f)
 
-# Add MOLTBOT_STATE_DIR to both services
-for svc in ["moltbot-gateway", "moltbot-cli"]:
+# Add OPENCLAW_STATE_DIR to both services
+for svc in ["openclaw-gateway", "openclaw-cli"]:
     if svc in data.get("services", {}):
         if "environment" not in data["services"][svc]:
             data["services"][svc]["environment"] = {}
-        data["services"][svc]["environment"]["MOLTBOT_STATE_DIR"] = "/home/node/.clawdbot"
+        data["services"][svc]["environment"]["OPENCLAW_STATE_DIR"] = "/home/node/.openclaw"
 
 with open("docker-compose.yml", "w") as f:
     yaml.dump(data, f, default_flow_style=False, sort_keys=False)
 
-print("✓ MOLTBOT_STATE_DIR added to docker-compose.yml")
+print("✓ OPENCLAW_STATE_DIR added to docker-compose.yml")
 PYEOF'
 
 # Restart with the patched config
-vm_exec 'cd ~/moltbot && sg docker -c "docker compose up -d"'
+vm_exec 'cd ~/openclaw && sg docker -c "docker compose up -d"'
 ok "EBUSY 修复完成"
 
 # ============================================================================
@@ -332,13 +343,13 @@ vm_exec 'sg docker -c '\''
     # 把宿主上的沙箱配置复制进 named volume
     # 使用 root 用户运行临时容器，确保有权限操作 volume 内文件
     docker run --rm -u root \
-        -v moltbot_home:/home/node \
-        -v ~/moltbot-sandbox-config:/tmp/sbx:ro \
-        moltbot:local \
+        -v openclaw_home:/home/node \
+        -v ~/openclaw-sandbox-config:/tmp/sbx:ro \
+        openclaw:local \
         sh -c "
-            CONFIG=/home/node/.clawdbot/config.json
-            # 如果 .moltbot 已存在（迁移成功），用新路径
-            [ -f /home/node/.moltbot/config.json ] && CONFIG=/home/node/.moltbot/config.json
+            CONFIG=/home/node/.openclaw/config.json
+            # 检查配置文件是否存在
+            [ -f /home/node/.openclaw/config.json ] && CONFIG=/home/node/.openclaw/config.json
             if [ -f \$CONFIG ] && command -v jq >/dev/null 2>&1; then
                 jq -s \".[0] * .[1]\" \$CONFIG /tmp/sbx/sandbox-config.json > /tmp/merged.json
                 mv /tmp/merged.json \$CONFIG
@@ -357,47 +368,47 @@ vm_exec 'sg docker -c '\''
 ok "沙箱配置已合并"
 
 # 启动容器
-vm_exec "cd ~/moltbot && sg docker -c 'docker compose up -d'"
+vm_exec "cd ~/openclaw && sg docker -c 'docker compose up -d'"
 
 # --- 创建 Mac 端便捷命令 ---
 mkdir -p ~/bin
 
-cat > ~/bin/moltbot-status << 'EOF'
+cat > ~/bin/openclaw-status << 'EOF'
 #!/bin/bash
-orb -m moltbot-vm bash -c "cd ~/moltbot && sg docker -c 'docker compose ps'"
+orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c 'docker compose ps'"
 EOF
 
-cat > ~/bin/moltbot-logs << 'EOF'
+cat > ~/bin/openclaw-logs << 'EOF'
 #!/bin/bash
-orb -m moltbot-vm bash -c "cd ~/moltbot && sg docker -c 'docker compose logs -f moltbot-gateway'"
+orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c 'docker compose logs -f openclaw-gateway'"
 EOF
 
-cat > ~/bin/moltbot-restart << 'EOF'
+cat > ~/bin/openclaw-restart << 'EOF'
 #!/bin/bash
-orb -m moltbot-vm bash -c "cd ~/moltbot && sg docker -c 'docker compose restart moltbot-gateway'"
+orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c 'docker compose restart openclaw-gateway'"
 EOF
 
-cat > ~/bin/moltbot-stop << 'EOF'
+cat > ~/bin/openclaw-stop << 'EOF'
 #!/bin/bash
-orb -m moltbot-vm bash -c "cd ~/moltbot && sg docker -c 'docker compose down'"
+orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c 'docker compose down'"
 EOF
 
-cat > ~/bin/moltbot-start << 'EOF'
+cat > ~/bin/openclaw-start << 'EOF'
 #!/bin/bash
-orb -m moltbot-vm bash -c "cd ~/moltbot && sg docker -c 'docker compose up -d'"
+orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c 'docker compose up -d'"
 EOF
 
-cat > ~/bin/moltbot-shell << 'EOF'
+cat > ~/bin/openclaw-shell << 'EOF'
 #!/bin/bash
-orb -m moltbot-vm
+orb -m openclaw-vm
 EOF
 
-cat > ~/bin/moltbot-doctor << 'EOF'
+cat > ~/bin/openclaw-doctor << 'EOF'
 #!/bin/bash
-orb -m moltbot-vm bash -c "cd ~/moltbot && sg docker -c 'docker compose run --rm moltbot-cli doctor'"
+orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c 'docker compose run --rm openclaw-cli doctor'"
 EOF
 
-chmod +x ~/bin/moltbot-*
+chmod +x ~/bin/openclaw-*
 ok "便捷命令已创建到 ~/bin/"
 
 # ============================================================================
@@ -411,13 +422,13 @@ echo ""
 echo "访问地址: http://${VM_NAME}.orb.local:18789"
 echo ""
 echo "Mac 端命令 (需将 ~/bin 加入 PATH):"
-echo "  moltbot-status    查看服务状态"
-echo "  moltbot-logs      实时日志"
-echo "  moltbot-restart   重启服务"
-echo "  moltbot-stop      停止服务"
-echo "  moltbot-start     启动服务"
-echo "  moltbot-shell     进入 VM 终端"
-echo "  moltbot-doctor    运行诊断"
+echo "  openclaw-status    查看服务状态"
+echo "  openclaw-logs      实时日志"
+echo "  openclaw-restart   重启服务"
+echo "  openclaw-stop      停止服务"
+echo "  openclaw-start     启动服务"
+echo "  openclaw-shell     进入 VM 终端"
+echo "  openclaw-doctor    运行诊断"
 echo ""
 echo "加入 PATH (添加到 ~/.zshrc):"
 echo '  export PATH="$HOME/bin:$PATH"'
