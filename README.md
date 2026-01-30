@@ -128,6 +128,7 @@ Full troubleshooting guide: [docs/troubleshooting.md](docs/troubleshooting.md)
 | Bonjour hostname conflict | Re-run setup script or manually add env var |
 | Port 18789 in use | `sudo pkill -9 openclaw && sudo systemctl start openclaw` |
 | Memory directory error | `mkdir -p ~/.openclaw/memory` |
+| Memory search not working | Add OpenAI/Google key to agent auth-profiles.json |
 
 ## Documentation
 

@@ -179,6 +179,124 @@ openclaw-restart
 
 ---
 
+### 5. Memory Search 无法使用 / 索引为空
+
+#### 症状
+
+运行 `openclaw memory status --deep` 显示：
+
+```
+No API key found for provider "openai"
+No API key found for provider "google"
+```
+
+或者显示 `Indexed: 0/N files`，索引文件是空的。
+
+#### 原因
+
+Memory Search 功能需要 **embedding API** 来生成向量索引，但没有配置对应的 API key。
+
+OpenClaw 的 memory 系统有两层：
+
+| 目录 | 用途 |
+|------|------|
+| `~/.openclaw/workspace/memory/*.md` | 原始记忆文件（Markdown，AI 写入） |
+| `~/.openclaw/memory/*.sqlite` | 向量索引（需要 embedding API 生成） |
+
+安装脚本只创建了空目录，**没有配置 embedding provider**。
+
+#### 解决方案
+
+**步骤 1：为 agent 添加 OpenAI API key**
+
+```bash
+openclaw-shell
+
+# 编辑 auth 文件
+nano ~/.openclaw/agents/main/agent/auth-profiles.json
+```
+
+在 `profiles` 里添加 OpenAI（注意要放在 `profiles: {}` **内部**）：
+
+```json
+{
+  "version": 1,
+  "profiles": {
+    "现有的配置...": {},
+    "openai:default": {
+      "type": "api_key",
+      "provider": "openai",
+      "key": "sk-你的OpenAI-API-Key"
+    }
+  },
+  "lastGood": {
+    "openai": "openai:default"
+  }
+}
+```
+
+**步骤 2：验证配置**
+
+```bash
+openclaw memory status --deep
+```
+
+应该显示 `Provider: openai` 而不是报错。
+
+**步骤 3：构建索引**
+
+```bash
+openclaw memory index
+```
+
+⚠️ **注意**：默认使用 OpenAI Batch API（便宜 50% 但较慢），可能需要几分钟。
+
+如果想要实时索引（快但贵），编辑配置：
+
+```bash
+openclaw-config edit
+```
+
+添加：
+
+```json5
+agents: {
+  defaults: {
+    memorySearch: {
+      remote: {
+        batch: { enabled: false }
+      }
+    }
+  }
+}
+```
+
+**步骤 4：验证索引完成**
+
+```bash
+openclaw memory status --deep
+# 应显示 Indexed: N/N files · M chunks
+# Dirty: no
+```
+
+#### 替代方案：使用本地 embedding（免费，无需 API）
+
+如果不想用 OpenAI API，可以配置本地模型：
+
+```json5
+agents: {
+  defaults: {
+    memorySearch: {
+      provider: "local"
+    }
+  }
+}
+```
+
+OpenClaw 会自动下载本地 embedding 模型。
+
+---
+
 ### 5. 服务状态检查
 
 #### 常用诊断命令

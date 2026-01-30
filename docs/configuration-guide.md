@@ -523,6 +523,118 @@ OpenClaw 使用 **JSON5** 格式，支持：
 | 英文 | `en-US-JennyNeural` | 女 |
 | 英文 | `en-US-GuyNeural` | 男 |
 
+### Memory Search 配置
+
+Memory Search 允许 AI 搜索历史记忆。**需要配置 embedding provider 才能工作**。
+
+#### 基本配置
+
+```json5
+{
+  agents: {
+    defaults: {
+      memorySearch: {
+        provider: "auto",  // auto | openai | gemini | local
+        // auto 模式会按以下顺序尝试:
+        // 1. local (如果配置了 modelPath)
+        // 2. openai (如果有 API key)
+        // 3. gemini (如果有 API key)
+      }
+    }
+  }
+}
+```
+
+#### 重要：配置 Embedding API Key
+
+Memory Search 需要调用 embedding API 生成向量索引。**必须在 agent 的 auth-profiles.json 中配置 OpenAI 或 Google 的 API key**：
+
+```bash
+# 编辑 agent auth 文件
+nano ~/.openclaw/agents/main/agent/auth-profiles.json
+```
+
+在 `profiles` 中添加：
+
+```json
+{
+  "profiles": {
+    "openai:default": {
+      "type": "api_key",
+      "provider": "openai",
+      "key": "sk-你的OpenAI-Key"
+    }
+  },
+  "lastGood": {
+    "openai": "openai:default"
+  }
+}
+```
+
+#### 验证配置
+
+```bash
+openclaw memory status --deep
+# 应显示 Provider: openai 而不是 "No API key found"
+```
+
+#### 构建索引
+
+```bash
+openclaw memory index
+```
+
+#### 高级配置
+
+```json5
+{
+  agents: {
+    defaults: {
+      memorySearch: {
+        provider: "openai",
+        model: "text-embedding-3-small",
+        // Batch API (默认开启，便宜 50% 但较慢)
+        remote: {
+          batch: {
+            enabled: true,    // 关闭则使用实时 API (快但贵)
+            concurrency: 4
+          }
+        },
+        // 混合搜索 (向量 + 文本)
+        query: {
+          hybrid: {
+            enabled: true,
+            vectorWeight: 0.7,
+            textWeight: 0.3
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+#### 使用本地 Embedding (免费)
+
+如果不想用 OpenAI/Google API，可以使用本地模型：
+
+```json5
+{
+  agents: {
+    defaults: {
+      memorySearch: {
+        provider: "local"
+        // OpenClaw 会自动下载本地 embedding 模型
+      }
+    }
+  }
+}
+```
+
+详见 [troubleshooting.md](troubleshooting.md#5-memory-search-无法使用--索引为空) 获取更多帮助。
+
+---
+
 ### 工具权限配置
 
 ```json5

@@ -128,6 +128,7 @@ openclaw-shell         # 进入 VM 排查
 | Bonjour hostname conflict 警告 | 重新运行部署脚本或手动添加环境变量 |
 | Port 18789 already in use | `sudo pkill -9 openclaw && sudo systemctl start openclaw` |
 | Memory 目录错误 | `mkdir -p ~/.openclaw/memory` |
+| Memory search 无法使用 | 在 agent auth-profiles.json 中添加 OpenAI/Google key |
 
 ### Memory 目录问题
 

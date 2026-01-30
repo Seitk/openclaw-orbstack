@@ -168,6 +168,29 @@ bash -x openclaw-orbstack-setup.sh     # Debug trace
 | Bonjour hostname conflict | Already fixed via `OPENCLAW_DISABLE_BONJOUR=1` in systemd |
 | Port 18789 in use | `sudo pkill -9 openclaw && sudo systemctl start openclaw` |
 | Memory directory error | `mkdir -p ~/.openclaw/memory && chmod 755 ~/.openclaw/memory` |
+| Memory search not working | Add OpenAI/Google key to `~/.openclaw/agents/main/agent/auth-profiles.json` |
 | Browser sandbox fails | Ensure `tmpfs: ["/tmp:exec,mode=1777"]` in config |
 
 See [docs/troubleshooting.md](docs/troubleshooting.md) for full guide.
+
+## Memory Search Setup
+
+Memory search requires embedding API. Quick setup:
+
+```bash
+# 1. Edit agent auth file (in VM)
+nano ~/.openclaw/agents/main/agent/auth-profiles.json
+
+# Add inside "profiles": { }
+#   "openai:default": {
+#     "type": "api_key",
+#     "provider": "openai", 
+#     "key": "sk-your-key"
+#   }
+
+# 2. Verify
+openclaw memory status --deep
+
+# 3. Build index
+openclaw memory index
+```

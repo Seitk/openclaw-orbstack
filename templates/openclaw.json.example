@@ -153,11 +153,32 @@
         breakPreference: "paragraph"  // "paragraph" | "newline" | "sentence"
       },
       
-      // 记忆搜索配置
+      // ========== 记忆搜索配置 ==========
+      // 重要：Memory Search 需要 embedding API 才能工作！
+      // 必须在 ~/.openclaw/agents/<agentId>/agent/auth-profiles.json 中配置
+      // OpenAI 或 Google 的 API key，否则索引无法创建。
+      // 
+      // 配置步骤：
+      // 1. 编辑 auth-profiles.json，在 profiles 中添加 "openai:default" 或 "google:default"
+      // 2. 运行 openclaw memory status --deep 验证配置
+      // 3. 运行 openclaw memory index 构建索引
+      //
+      // 详见 docs/configuration-guide.md 和 docs/troubleshooting.md
       memorySearch: {
         provider: "auto",  // "auto" | "openai" | "gemini" | "local"
-        // model: "text-embedding-3-small",
-        // extraPaths: ["../team-docs", "/srv/shared-notes"]
+        // auto 模式会按顺序尝试: local → openai → gemini
+        // 如果没有可用的 embedding provider，memory search 会被静默禁用
+        
+        // model: "text-embedding-3-small",  // OpenAI embedding 模型
+        // extraPaths: ["../team-docs", "/srv/shared-notes"],  // 额外索引路径
+        
+        // Batch API 配置 (默认开启，便宜 50% 但较慢)
+        // remote: {
+        //   batch: {
+        //     enabled: true,   // 设为 false 使用实时 API (快但贵)
+        //     concurrency: 2
+        //   }
+        // }
       },
       
       // ========== 沙箱配置 ==========
