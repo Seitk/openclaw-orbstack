@@ -81,3 +81,22 @@ OpenClawOrb/
 | `openclaw-stop/start` | Stop/start service |
 | `openclaw-shell` | Enter VM |
 | `openclaw-update` | Update version |
+
+## Git Operations
+
+Use GitHub CLI (`gh`) for pushing code:
+
+```bash
+# Push using gh token (avoids credential issues)
+git push https://aaajiao:$(gh auth token)@github.com/aaajiao/openclaw-orbstack.git main
+```
+
+## Sandbox Environment Variables
+
+**Important**: Environment variables for sandbox must be configured in `sandbox.docker.env`, not top-level `env`.
+
+**Reserved variable names** (cannot pass to sandbox):
+- `TELEGRAM_BOT_TOKEN` → use `TG_BOT_TOKEN` instead
+- `DISCORD_BOT_TOKEN` → use `DISCORD_TOKEN` instead
+
+See [docs/sandbox.md](docs/sandbox.md#environment-variables-重要) for details.
