@@ -160,7 +160,13 @@
         // extraPaths: ["../team-docs", "/srv/shared-notes"]
       },
       
-      // ========== 沙箱配置 (代码执行环境) ==========
+      // ========== 沙箱配置 ==========
+      // 重要概念:
+      // - AI 大脑运行在云端 (Anthropic/OpenAI/Google)，不在沙箱里
+      // - 沙箱是 AI 的"手"——只执行工具，不运行 AI
+      // - 系统有两个沙箱:
+      //   1. sandbox.docker  → 代码执行沙箱 (exec, read, write, edit)
+      //   2. sandbox.browser → 浏览器沙箱 (Playwright, Chromium)
       sandbox: {
         // 沙箱模式:
         //   "off"      - 不使用沙箱 (危险：AI 可访问 /mnt/mac)
@@ -183,7 +189,8 @@
         // 沙箱工作区根目录
         workspaceRoot: "~/.openclaw/sandboxes",
         
-        // Docker 容器配置
+        // ===== 代码执行沙箱配置 (sandbox.docker) =====
+        // 注意: 配置名是 "docker" 但这是"代码执行沙箱"的配置，不是通用 Docker 配置
         docker: {
           // 沙箱镜像
           image: "openclaw-sandbox-common:bookworm-slim",
@@ -211,7 +218,7 @@
           //       需改名为 TG_BOT_TOKEN、DISCORD_TOKEN 才能传到沙箱
           env: {
             LANG: "C.UTF-8",
-            OPENCLAW_GATEWAY_TOKEN: "${OPENCLAW_GATEWAY_TOKEN}",
+            // OPENCLAW_GATEWAY_TOKEN 由 Gateway 自动注入，通常不需要手动配置
             // 添加你需要在沙箱内使用的 API Key:
             // OPENAI_API_KEY: "sk-xxx",
             // ANTHROPIC_API_KEY: "sk-ant-xxx",
@@ -233,7 +240,7 @@
           // extraHosts: ["myhost:192.168.1.1"]
         },
         
-        // 浏览器沙箱 (Playwright)
+        // ===== 浏览器沙箱配置 (sandbox.browser) =====
         browser: {
           enabled: true,
           image: "openclaw-sandbox-browser:bookworm-slim",
@@ -241,13 +248,12 @@
           autoStart: true,              // 自动启动浏览器沙箱
           autoStartTimeoutMs: 30000,    // 启动超时 30 秒
           allowHostControl: true,       // 允许 target="host" 访问宿主浏览器
-          // 浏览器沙箱环境变量 (与 docker.env 分开配置)
-          env: {
-            LANG: "C.UTF-8",
-            OPENCLAW_GATEWAY_TOKEN: "${OPENCLAW_GATEWAY_TOKEN}",
-            // 如果浏览器沙箱也需要 API Key，在这里添加:
-            // OPENAI_API_KEY: "sk-xxx"
-          }
+          // 浏览器沙箱环境变量 (可选，通常不需要配置)
+          // OPENCLAW_GATEWAY_TOKEN 由 Gateway 自动注入
+          // env: {
+          //   LANG: "C.UTF-8",
+          //   OPENAI_API_KEY: "sk-xxx"  // 如果浏览器沙箱需要 API Key
+          // }
         },
         
         // 自动清理

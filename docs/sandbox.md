@@ -1,5 +1,49 @@
 # Sandbox System
 
+## AI 在哪里运行？(重要概念)
+
+**AI 大脑不在沙箱里运行！** 这是最常见的误解。
+
+```
+☁️  云端 (Anthropic/OpenAI/Google 服务器)
+     ↑ API 调用 (AI 大脑在这里思考)
+     │
+┌────┴─────────────────────────────────────┐
+│  Gateway 进程 (VM 上，不在 Docker 里)      │
+│  - 接收聊天消息 (Telegram/WhatsApp)        │
+│  - 调用云端 AI API (Claude/GPT/Gemini)     │
+│  - 处理 AI 返回的工具调用请求              │
+│  - 分发工具执行到沙箱                      │
+└────┬─────────────────┬───────────────────┘
+     │                 │
+     ▼                 ▼
+┌─────────────┐  ┌─────────────┐
+│ 代码沙箱     │  │ 浏览器沙箱   │
+│ (Docker)    │  │ (Docker)    │
+│ 执行 exec   │  │ 执行 browser │
+│ read/write  │  │ Playwright  │
+└─────────────┘  └─────────────┘
+```
+
+| 组件 | 位置 | 作用 |
+|------|------|------|
+| **AI 大脑** | ☁️ 云端 (Anthropic/OpenAI/Google) | 思考、推理、决策 |
+| **Gateway** | VM 上 (非 Docker) | 协调器，转发消息和工具调用 |
+| **沙箱** | Docker 容器 | **只执行工具**，不运行 AI |
+
+**沙箱是 AI 的"手"**——当 AI 说"我要执行这段代码"，Gateway 把请求发到代码沙箱执行，然后把结果返回给云端 AI。
+
+## 两个沙箱 (不是三个！)
+
+系统只有**两个**沙箱容器，配置名称可能有歧义：
+
+| 配置节 | 容器名 | 用途 |
+|--------|--------|------|
+| `sandbox.docker` | `openclaw-sandbox-common` | **代码执行沙箱** (exec, read, write, edit) |
+| `sandbox.browser` | `openclaw-sandbox-browser` | **浏览器沙箱** (Playwright, Chromium) |
+
+**注意**: `sandbox.docker` 这个名字容易误解，它不是"Docker 配置"，而是"代码执行沙箱的 Docker 容器配置"。
+
 ## Architecture
 
 ```
@@ -9,15 +53,16 @@
 │  ┌─────────────────────────────────────────────────────────────────────────┐│
 │  │  Gateway Process (VM Host)                                              ││
 │  │  - Receives user messages                                               ││
-│  │  - Manages AI model calls                                               ││
+│  │  - Manages AI model calls (to cloud providers)                          ││
 │  │  - Dispatches tool execution to sandboxes                               ││
 │  └───────────────────────────────────┬─────────────────────────────────────┘│
 │                                      │                                       │
 │                    ┌─────────────────┴─────────────────┐                    │
 │                    ▼                                   ▼                    │
 │  ┌─────────────────────────────────┐  ┌─────────────────────────────────┐  │
-│  │  Main Sandbox Container         │  │  Browser Sandbox Container      │  │
-│  │  (openclaw-sandbox-common)      │  │  (openclaw-sandbox-browser)     │  │
+│  │  代码执行沙箱                    │  │  浏览器沙箱                      │  │
+│  │  (sandbox.docker 配置)          │  │  (sandbox.browser 配置)         │  │
+│  │  Container: sandbox-common      │  │  Container: sandbox-browser     │  │
 │  │                                 │  │                                 │  │
 │  │  Tools:                         │  │  Tools:                         │  │
 │  │  - exec (run commands)          │  │  - browser (web automation)     │  │
@@ -27,13 +72,16 @@
 │  │  Pre-installed:                 │  │  - Xvfb (headful mode)          │  │
 │  │  - Node.js, npm                 │  │  - noVNC (optional)             │  │
 │  │  - Python 3                     │  │                                 │  │
-│  │  - Go, Rust                     │  │                                 │  │
-│  │  - git, curl, jq                │  │                                 │  │
+│  │  - Go, Rust                     │  │  Startup:                       │  │
+│  │  - git, curl, jq                │  │  - autoStart: true (自动启动)   │  │
 │  │                                 │  │                                 │  │
-│  │  Security:                      │  │  Security:                      │  │
-│  │  - network: bridge              │  │  - network: bridge              │  │
-│  │  - readOnlyRoot: true           │  │  - Separate from main sandbox   │  │
-│  │  - user: 501:501                │  │  - autoStart: true              │  │
+│  │  Startup:                       │  │  Security:                      │  │
+│  │  - 按需启动 (无 autoStart)       │  │  - network: bridge              │  │
+│  │                                 │  │  - Separate container           │  │
+│  │  Security:                      │  │                                 │  │
+│  │  - network: bridge              │  │                                 │  │
+│  │  - readOnlyRoot: true           │  │                                 │  │
+│  │  - user: 501:501                │  │                                 │  │
 │  │  - capDrop: ALL                 │  │                                 │  │
 │  └─────────────────────────────────┘  └─────────────────────────────────┘  │
 │                                                                              │
@@ -241,16 +289,16 @@ openclaw-restart
           }
         },
         "browser": {
-          "env": {
-            "LANG": "C.UTF-8",
-            "OPENAI_API_KEY": "sk-xxx"
-          }
+          "enabled": true,
+          "autoStart": true
         }
       }
     }
   }
 }
 ```
+
+**注意**: `OPENCLAW_GATEWAY_TOKEN` 由 Gateway 自动注入到沙箱容器，不需要手动配置。
 
 ### 常见错误
 

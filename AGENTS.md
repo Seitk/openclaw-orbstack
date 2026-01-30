@@ -7,14 +7,23 @@ OpenClaw OrbStack deployment toolkit. One-click OpenClaw chatbot deployment on m
 ## Architecture
 
 ```
-Mac
+☁️  Cloud AI (Anthropic/OpenAI/Google)  ← AI brain runs HERE
+     ↑ API calls
+     │
+Mac ─┼─────────────────────────────────────────────────
+     │
 └── OrbStack
     └── Ubuntu VM (openclaw-vm)
-        ├── Gateway process (Node.js, systemd)  ← NOT in Docker
-        └── Docker (sandbox only)
-            ├── sandbox-common (code execution)
-            └── sandbox-browser (Chromium)
+        ├── Gateway process (Node.js, systemd)  ← NOT in Docker, orchestrator
+        └── Docker (two sandbox containers)
+            ├── sandbox-common (code execution)  ← sandbox.docker config
+            └── sandbox-browser (Chromium)       ← sandbox.browser config
 ```
+
+**Key concepts**:
+- ☁️ AI brain runs in **cloud** (Anthropic/OpenAI/Google servers)
+- 🔧 Sandboxes are AI's "hands" — only execute tools, don't run AI
+- 📦 Only **TWO** sandboxes: code execution + browser
 
 **Critical**: Gateway runs directly on VM. Docker containers are the ONLY isolation layer protecting Mac files (VM has `/mnt/mac` access).
 
@@ -122,10 +131,12 @@ EOF
 | Scope | Location | Reaches |
 |-------|----------|---------|
 | Gateway | Top-level `env: {}` | Gateway process only |
-| Main sandbox | `sandbox.docker.env` | Code execution container |
+| Code sandbox | `sandbox.docker.env` | Code execution container |
 | Browser sandbox | `sandbox.browser.env` | Browser container |
 
 **They do NOT inherit from each other.**
+
+**Note**: `OPENCLAW_GATEWAY_TOKEN` is auto-injected by Gateway, no manual config needed.
 
 ### Deployment Variables
 | Variable | Purpose | Default |

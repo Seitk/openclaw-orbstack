@@ -1,5 +1,38 @@
 # Architecture
 
+## AI 在哪里运行？
+
+**重要**: AI 大脑（LLM）运行在**云端**，不在本地！
+
+```
+☁️  云端 AI 服务器 (Anthropic Claude / OpenAI GPT / Google Gemini)
+     ↑ HTTPS API 调用
+     │ (AI 在这里"思考")
+     │
+┌────┴────────────────────────────────────────────────────────────────────────┐
+│  OrbStack VM (openclaw-vm)                                                   │
+│                                                                              │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │  Gateway 进程 (协调器)                                                  │ │
+│  │  - 接收聊天消息 (Telegram/WhatsApp/Web)                                 │ │
+│  │  - 调用云端 AI API                                                      │ │
+│  │  - 处理 AI 返回的工具调用                                               │ │
+│  │  - 分发工具执行到沙箱                                                   │ │
+│  └────────────────────────────┬───────────────────────────────────────────┘ │
+│                               │                                              │
+│               ┌───────────────┴───────────────┐                             │
+│               ▼                               ▼                             │
+│  ┌─────────────────────────┐  ┌─────────────────────────┐                   │
+│  │ 代码执行沙箱 (Docker)    │  │ 浏览器沙箱 (Docker)      │                   │
+│  │ sandbox.docker 配置      │  │ sandbox.browser 配置    │                   │
+│  │                         │  │                         │                   │
+│  │ exec, read, write, edit │  │ browser (Playwright)    │                   │
+│  └─────────────────────────┘  └─────────────────────────┘                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**沙箱是 AI 的"手"**——AI 在云端思考决策，通过 Gateway 指挥沙箱执行具体操作。
+
 ## System Overview (本地安装版)
 
 ```
@@ -160,11 +193,45 @@ Gateway (VM 进程)
 │  │ network:    │      │ network:    │  │
 │  │   bridge    │      │   bridge    │  │
 │  │ 代码执行     │      │ 浏览器控制   │  │
+│  │             │      │             │  │
+│  │ 配置节:      │      │ 配置节:      │  │
+│  │ sandbox.    │      │ sandbox.    │  │
+│  │   docker    │      │   browser   │  │
 │  └─────────────┘      └─────────────┘  │
 └─────────────────────────────────────────┘
 ```
 
-- **代码沙箱**: `network: bridge`，通过 Docker exec API 通信（网络可访问但 Mac 文件隔离）
-- **浏览器沙箱**: `network: bridge`，通过 CDP (Chrome DevTools Protocol) 通信
+### 两个沙箱的配置对应关系
+
+| 配置节 | Docker 容器 | 用途 | 启动方式 |
+|--------|-------------|------|----------|
+| `sandbox.docker` | `openclaw-sandbox-common` | 代码执行 (exec, read, write) | 按需启动 |
+| `sandbox.browser` | `openclaw-sandbox-browser` | 浏览器自动化 (Playwright) | `autoStart: true` |
+
+**注意**: `sandbox.docker` 这个配置名容易误解——它不是"Docker 通用配置"，而是"代码执行沙箱的配置"。
+
+### 通信协议
+
+- **代码沙箱**: 通过 Docker exec API 通信（网络可访问但 Mac 文件隔离）
+- **浏览器沙箱**: 通过 CDP (Chrome DevTools Protocol) 通信
+
+### 环境变量
+
+沙箱容器的环境变量在 `sandbox.docker.env` 配置：
+
+```json
+{
+  "sandbox": {
+    "docker": {
+      "env": {
+        "LANG": "C.UTF-8",
+        "OPENAI_API_KEY": "sk-xxx"
+      }
+    }
+  }
+}
+```
+
+**注意**: `OPENCLAW_GATEWAY_TOKEN` 由 Gateway 自动注入，不需要手动配置。
 
 **重要**: Docker 容器是保护 Mac 文件的唯一隔离层。VM 通过 `/mnt/mac` 可访问 Mac 文件。

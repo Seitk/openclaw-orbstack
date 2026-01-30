@@ -5,14 +5,28 @@
 ## 架构
 
 ```
-Mac
+☁️  云端 AI (Anthropic/OpenAI/Google)  ← AI 大脑在这里
+     ↑ API 调用
+     │
+Mac ─┼─────────────────────────────────────────────────
+     │
 └── OrbStack
     └── Ubuntu VM (openclaw-vm)
-        ├── Gateway 进程 (Node.js, systemd)
-        └── Docker
-            ├── sandbox-common (代码执行)
-            └── sandbox-browser (浏览器自动化)
+        │
+        ├── Gateway 进程 (协调器，不在 Docker 里)
+        │   - 接收聊天消息
+        │   - 调用云端 AI
+        │   - 分发工具执行到沙箱
+        │
+        └── Docker (两个沙箱容器)
+            ├── sandbox-common (代码执行)   ← sandbox.docker 配置
+            └── sandbox-browser (浏览器)    ← sandbox.browser 配置
 ```
+
+**重要概念**:
+- ☁️ AI 大脑运行在**云端** (Anthropic/OpenAI/Google 服务器)
+- 🔧 沙箱是 AI 的"手"——只执行工具，不运行 AI
+- 📦 系统只有**两个**沙箱：代码执行 + 浏览器
 
 **优势**:
 - ✅ 符合 OpenClaw 官方推荐架构
