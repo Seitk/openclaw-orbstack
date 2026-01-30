@@ -52,6 +52,7 @@ OpenClawOrb/
 | [docs/commands.md](docs/commands.md) | **CLI reference** - 11 OrbStack commands + 150 official |
 | [docs/configuration-guide.md](docs/configuration-guide.md) | Complete config guide (Chinese) |
 | [docs/architecture.md](docs/architecture.md) | System overview, deployment flow |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | **Troubleshooting** - Bonjour conflicts, port issues |
 | [docs/sandbox.md](docs/sandbox.md) | Sandbox security model |
 
 ## Key Points for Agents
@@ -64,6 +65,7 @@ OpenClawOrb/
 6. **Config file**: `~/.openclaw/openclaw.json`
 7. **Sandbox images**: `sandbox-common`, `sandbox-browser`
 8. **Security**: `network: bridge`, `readOnlyRoot: true`, `capDrop: ALL` (Docker containers protect Mac files)
+9. **Bonjour disabled**: `OPENCLAW_DISABLE_BONJOUR=1` in systemd to prevent mDNS conflicts with macOS
 
 ## Mac Commands (11)
 

@@ -103,6 +103,28 @@ openclaw doctor        # 运行诊断
 openclaw-shell         # 进入 VM 排查
 ```
 
+详细故障排查指南见 [docs/troubleshooting.md](docs/troubleshooting.md)
+
+### 常见问题速查
+
+| 问题 | 解决方案 |
+|------|----------|
+| Bonjour hostname conflict 警告 | 重新运行部署脚本或手动添加环境变量 |
+| Port 18789 already in use | `sudo pkill -9 openclaw && sudo systemctl start openclaw` |
+| Memory 目录错误 | `mkdir -p ~/.openclaw/memory` |
+
+### Memory 目录问题
+
+如果遇到 `EISDIR: illegal operation on a directory` 错误，手动创建 memory 索引目录：
+
+```bash
+openclaw-shell
+mkdir -p ~/.openclaw/memory
+chmod 755 ~/.openclaw/memory
+exit
+openclaw-restart
+```
+
 ## 文档
 
 | 文档 | 内容 |
@@ -110,6 +132,7 @@ openclaw-shell         # 进入 VM 排查
 | [docs/commands.md](docs/commands.md) | CLI 命令完整参考 |
 | [docs/architecture.md](docs/architecture.md) | 架构说明 |
 | [docs/configuration-guide.md](docs/configuration-guide.md) | 配置指南 |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | 故障排查指南 |
 | [docs/sandbox.md](docs/sandbox.md) | 沙箱安全 |
 | [docs/voice-tts.md](docs/voice-tts.md) | 语音功能 |
 

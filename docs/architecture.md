@@ -101,7 +101,12 @@ Step 8: Configure systemd + Commands
 ~/.openclaw/                   # 配置目录
   ├── openclaw.json            # 主配置 (含沙箱设置)
   ├── credentials/             # API keys, tokens
+  ├── memory/                  # Memory 索引 (<agentId>.sqlite)
+  ├── agents/                  # Agent 数据 (sessions 等)
   ├── workspace/               # Agent workspace
+  │   ├── AGENTS.md            # Agent 指令
+  │   ├── MEMORY.md            # 长期记忆 (可选)
+  │   └── memory/              # 每日记忆 (YYYY-MM-DD.md)
   └── sandboxes/               # Sandbox workspaces
 ```
 
@@ -109,10 +114,19 @@ Step 8: Configure systemd + Commands
 
 ```
 /etc/systemd/system/openclaw.service
-  - ExecStart: node dist/gateway/index.js
-  - Restart: on-failure
+  - ExecStart: node dist/entry.js gateway --port 18789
+  - Restart: always
+  - RestartSec: 5
   - User: <vm-user>
+  - Environment:
+    - NODE_ENV=production
+    - OPENCLAW_DISABLE_BONJOUR=1    # 禁用 Bonjour 避免冲突
+    - CLAWDBOT_DISABLE_BONJOUR=1    # 兼容旧版
 ```
+
+**关于 Bonjour**：OrbStack 环境下，macOS 的 mDNSResponder 会与 Gateway 的 Bonjour 服务冲突，
+导致 `hostname conflict` 警告循环。通过环境变量禁用 Bonjour 可解决此问题。
+详见 [troubleshooting.md](troubleshooting.md#1-bonjour-hostname-conflict-警告)。
 
 ### On Mac (~/bin/)
 

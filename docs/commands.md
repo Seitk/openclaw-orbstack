@@ -355,9 +355,61 @@ orb delete openclaw-vm             # 删除 VM (危险!)
 
 ## 环境变量
 
-部署时可选的环境变量：
+### 部署时可选的环境变量
 
 | 变量 | 用途 | 示例 |
 |------|------|------|
 | `OPENCLAW_VM_NAME` | VM 名称 | `my-openclaw` |
 | `OPENCLAW_PORT` | Gateway 端口 | `19000` |
+
+### Gateway 运行时环境变量
+
+这些环境变量已在 systemd 服务中配置：
+
+| 变量 | 用途 | 默认值 |
+|------|------|--------|
+| `OPENCLAW_DISABLE_BONJOUR` | 禁用 Bonjour/mDNS 广播 | `1` (已启用) |
+| `CLAWDBOT_DISABLE_BONJOUR` | 禁用 Bonjour (兼容旧版) | `1` (已启用) |
+| `NODE_ENV` | Node.js 环境 | `production` |
+
+---
+
+## 故障排查命令
+
+### 检查服务状态
+
+```bash
+# 查看服务状态
+openclaw-status
+
+# 查看实时日志
+openclaw-logs
+
+# 进入 VM 排查
+openclaw-shell
+```
+
+### 进程和端口诊断
+
+```bash
+# 查看 Gateway 进程
+orb -m openclaw-vm bash -c 'ps aux | grep openclaw'
+
+# 查看端口占用
+orb -m openclaw-vm bash -c 'ss -tlnp | grep 18789'
+
+# 查看进程环境变量
+orb -m openclaw-vm bash -c 'cat /proc/$(pgrep -f openclaw-gateway | head -1)/environ | tr "\0" "\n" | grep -i bonjour'
+
+# 查看 systemd 服务配置
+orb -m openclaw-vm bash -c 'systemctl show openclaw --property=Environment'
+```
+
+### 强制重启服务
+
+```bash
+# 杀死所有进程并重启
+orb -m openclaw-vm bash -c 'sudo systemctl stop openclaw; sudo pkill -9 openclaw; sudo pkill -9 node; sleep 2; sudo systemctl start openclaw'
+```
+
+详细故障排查指南见 [troubleshooting.md](troubleshooting.md)

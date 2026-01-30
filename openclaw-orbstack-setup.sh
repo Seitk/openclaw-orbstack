@@ -230,6 +230,10 @@ orb -m "$VM_NAME" openclaw onboard
 
 ok "配置向导完成"
 
+info "创建 memory 索引目录..."
+vm_exec "mkdir -p ~/.openclaw/memory && chmod 755 ~/.openclaw/memory"
+ok "memory 索引目录已创建"
+
 # ============================================================================
 # 步骤 8/8: 配置 systemd 服务 + Mac 端便捷命令
 # ============================================================================
@@ -258,6 +262,8 @@ RestartSec=5
 KillMode=process
 Environment=NODE_ENV=production
 Environment=HOME=$VM_HOME
+Environment=OPENCLAW_DISABLE_BONJOUR=1
+Environment=CLAWDBOT_DISABLE_BONJOUR=1
 
 [Install]
 WantedBy=multi-user.target
