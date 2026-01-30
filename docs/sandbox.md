@@ -281,3 +281,27 @@ openclaw-restart
   }
 }
 ```
+
+### 保留变量名 (不能传递到沙箱)
+
+以下变量名被 OpenClaw Gateway 内部使用，**不会传递到沙箱容器**：
+
+| 变量名 | 原因 | 替代名称 |
+|--------|------|---------|
+| `TELEGRAM_BOT_TOKEN` | Gateway 用于连接 Telegram | `TG_BOT_TOKEN` |
+| `DISCORD_BOT_TOKEN` | Gateway 用于连接 Discord | `DISCORD_TOKEN` |
+
+如果需要在沙箱内使用这些 token，请改用替代名称：
+
+```json
+{
+  "sandbox": {
+    "docker": {
+      "env": {
+        "TG_BOT_TOKEN": "123456:ABC...",  // ✅ 可以传递
+        "TELEGRAM_BOT_TOKEN": "..."       // ❌ 会被过滤
+      }
+    }
+  }
+}
+```

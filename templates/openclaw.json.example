@@ -207,13 +207,16 @@
           // 环境变量 (传递给沙箱容器)
           // 重要: API Key 必须在这里配置才能在沙箱内使用！
           // 顶层 env 块的变量不会自动传递到沙箱容器
+          // 注意: TELEGRAM_BOT_TOKEN、DISCORD_BOT_TOKEN 等被 Gateway 保留，
+          //       需改名为 TG_BOT_TOKEN、DISCORD_TOKEN 才能传到沙箱
           env: {
             LANG: "C.UTF-8",
             OPENCLAW_GATEWAY_TOKEN: "${OPENCLAW_GATEWAY_TOKEN}",
             // 添加你需要在沙箱内使用的 API Key:
             // OPENAI_API_KEY: "sk-xxx",
             // ANTHROPIC_API_KEY: "sk-ant-xxx",
-            // GOOGLE_API_KEY: "AIzaSyxxx"
+            // GOOGLE_API_KEY: "AIzaSyxxx",
+            // TG_BOT_TOKEN: "123456:ABC..."  // 用 TG_BOT_TOKEN 而非 TELEGRAM_BOT_TOKEN
           },
           // 资源限制
           pidsLimit: 256,        // 最大进程数
