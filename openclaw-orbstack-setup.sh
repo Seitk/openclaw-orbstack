@@ -143,6 +143,15 @@ fi
 # 安装构建工具
 vm_exec "sudo apt-get install -y build-essential git" || true
 
+# 安装 pnpm (OpenClaw 构建需要)
+if vm_exec "command -v pnpm &> /dev/null"; then
+    ok "pnpm 已安装: $(vm_exec 'pnpm --version')"
+else
+    info "安装 pnpm..."
+    vm_exec "sudo npm install -g pnpm"
+    ok "pnpm 已安装: $(vm_exec 'pnpm --version')"
+fi
+
 # ============================================================================
 # 步骤 5/8: 克隆并构建 OpenClaw
 # ============================================================================
@@ -161,6 +170,9 @@ vm_exec "cd ~/openclaw && npm install"
 
 info "编译项目 (npm run build)..."
 vm_exec "cd ~/openclaw && npm run build"
+
+info "构建 Control UI..."
+vm_exec "cd ~/openclaw && pnpm ui:build"
 
 info "全局安装 CLI..."
 vm_exec "cd ~/openclaw && sudo npm install -g ."
@@ -205,7 +217,7 @@ fi
 step 7 "运行配置向导"
 
 echo ""
-info "接下来进入交互式配置，请准备："
+info "接下来进入交互式配置向导 (onboard)，请准备："
 info "  - AI 模型 API Key（支持 Anthropic / OpenAI / OpenRouter 等）"
 info "  - Telegram Bot Token (从 @BotFather 获取) 或其他平台凭据"
 echo ""
@@ -213,7 +225,8 @@ echo -e "${YELLOW}按 Enter 继续...${NC}"
 read -r
 
 vm_exec "mkdir -p ~/.openclaw"
-vm_exec "openclaw setup"
+
+orb -m "$VM_NAME" openclaw onboard
 
 ok "配置向导完成"
 
@@ -348,6 +361,9 @@ orb -m openclaw-vm bash -c "cd ~/openclaw && npm install"
 
 echo "  编译项目..."
 orb -m openclaw-vm bash -c "cd ~/openclaw && npm run build"
+
+echo "  构建 Control UI..."
+orb -m openclaw-vm bash -c "cd ~/openclaw && pnpm ui:build"
 
 echo "  重新安装 CLI..."
 orb -m openclaw-vm bash -c "cd ~/openclaw && sudo npm install -g ."
