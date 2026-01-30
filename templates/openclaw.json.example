@@ -204,10 +204,16 @@
           user: "501:501",
           // 放弃的 Linux capabilities
           capDrop: ["ALL"],
-          // 环境变量 (OPENCLAW_GATEWAY_TOKEN 用于沙箱与网关通信)
+          // 环境变量 (传递给沙箱容器)
+          // 重要: API Key 必须在这里配置才能在沙箱内使用！
+          // 顶层 env 块的变量不会自动传递到沙箱容器
           env: {
             LANG: "C.UTF-8",
-            OPENCLAW_GATEWAY_TOKEN: "${OPENCLAW_GATEWAY_TOKEN}"
+            OPENCLAW_GATEWAY_TOKEN: "${OPENCLAW_GATEWAY_TOKEN}",
+            // 添加你需要在沙箱内使用的 API Key:
+            // OPENAI_API_KEY: "sk-xxx",
+            // ANTHROPIC_API_KEY: "sk-ant-xxx",
+            // GOOGLE_API_KEY: "AIzaSyxxx"
           },
           // 资源限制
           pidsLimit: 256,        // 最大进程数
@@ -232,10 +238,12 @@
           autoStart: true,              // 自动启动浏览器沙箱
           autoStartTimeoutMs: 30000,    // 启动超时 30 秒
           allowHostControl: true,       // 允许 target="host" 访问宿主浏览器
-          // 浏览器沙箱也需要 token
+          // 浏览器沙箱环境变量 (与 docker.env 分开配置)
           env: {
             LANG: "C.UTF-8",
-            OPENCLAW_GATEWAY_TOKEN: "${OPENCLAW_GATEWAY_TOKEN}"
+            OPENCLAW_GATEWAY_TOKEN: "${OPENCLAW_GATEWAY_TOKEN}",
+            // 如果浏览器沙箱也需要 API Key，在这里添加:
+            // OPENAI_API_KEY: "sk-xxx"
           }
         },
         

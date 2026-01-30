@@ -87,7 +87,9 @@ Docker 容器看不到！只能看到 /workspace
           "cpus": 1,
           "pidsLimit": 256,
           "env": {
-            "LANG": "C.UTF-8"
+            "LANG": "C.UTF-8",
+            "OPENAI_API_KEY": "sk-xxx",
+            "GOOGLE_API_KEY": "AIzaSyxxx"
           }
         },
         "browser": {
@@ -207,4 +209,75 @@ docker rm -f $(docker ps -aq --filter "name=openclaw-sbx") 2>/dev/null || true
 
 # 重启 gateway
 openclaw-restart
+```
+
+## Environment Variables (重要)
+
+**沙箱容器不会继承 Gateway 的环境变量！** 如果需要在沙箱内使用 API Key，必须在 `sandbox.docker.env` 中显式配置。
+
+### 配置位置说明
+
+| 配置位置 | 作用域 | 示例用途 |
+|---------|--------|---------|
+| 顶层 `env: {}` | Gateway 进程 | Gateway 内部使用的变量 |
+| `sandbox.docker.env` | Main sandbox 容器 | 代码执行时需要的 API Key |
+| `sandbox.browser.env` | Browser sandbox 容器 | 浏览器自动化需要的变量 |
+
+**三个位置是独立的，不会自动继承。**
+
+### 正确配置示例
+
+```json
+{
+  "agents": {
+    "defaults": {
+      "sandbox": {
+        "docker": {
+          "env": {
+            "LANG": "C.UTF-8",
+            "OPENAI_API_KEY": "sk-xxx",
+            "ANTHROPIC_API_KEY": "sk-ant-xxx",
+            "GOOGLE_API_KEY": "AIzaSyxxx"
+          }
+        },
+        "browser": {
+          "env": {
+            "LANG": "C.UTF-8",
+            "OPENAI_API_KEY": "sk-xxx"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### 常见错误
+
+❌ **错误**: 在顶层 `env` 配置 API Key，期望沙箱能用
+
+```json
+{
+  "env": {
+    "OPENAI_API_KEY": "sk-xxx"  // 这只给 Gateway 用，沙箱看不到！
+  }
+}
+```
+
+✅ **正确**: 在 `sandbox.docker.env` 配置
+
+```json
+{
+  "agents": {
+    "defaults": {
+      "sandbox": {
+        "docker": {
+          "env": {
+            "OPENAI_API_KEY": "sk-xxx"  // 沙箱容器可以使用
+          }
+        }
+      }
+    }
+  }
+}
 ```

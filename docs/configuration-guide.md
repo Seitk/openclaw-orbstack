@@ -467,12 +467,23 @@ OpenClaw 使用 **JSON5** 格式，支持：
       tmpfs: ["/tmp:exec,mode=1777", "/var/tmp", "/run"],  // Playwright 需要
       user: "501:501",     // macOS 用户权限
       memory: "1g",
-      cpus: 1
+      cpus: 1,
+      // 重要: 沙箱内需要的 API Key 必须在这里配置！
+      env: {
+        LANG: "C.UTF-8",
+        OPENAI_API_KEY: "sk-xxx",
+        GOOGLE_API_KEY: "AIzaSyxxx"
+      }
     },
     browser: {
       enabled: true,
       autoStart: true,
-      autoStartTimeoutMs: 30000
+      autoStartTimeoutMs: 30000,
+      // 浏览器沙箱的环境变量单独配置
+      env: {
+        LANG: "C.UTF-8",
+        OPENAI_API_KEY: "sk-xxx"
+      }
     }
   }
 }
@@ -480,7 +491,8 @@ OpenClaw 使用 **JSON5** 格式，支持：
 
 > **注意**: OrbStack VM 通过 `/mnt/mac` 可访问 Mac 文件，所以 Docker 容器是唯一的隔离层。
 > 即使设置 `network: "bridge"`，Mac 文件仍然受到保护，因为容器只能访问挂载的 `/workspace`。
-```
+
+> **重要**: 沙箱容器不会继承 Gateway 的环境变量！`sandbox.docker.env` 和 `sandbox.browser.env` 需要分别配置。详见 [sandbox.md](sandbox.md#environment-variables-重要)。
 
 ### TTS 语音配置
 
