@@ -1,3 +1,6 @@
 .claude/settings.local.json
 .claude/*.local.*
 .DS_Store
+
+# Personal config folder (never commit)
+local/
