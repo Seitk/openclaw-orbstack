@@ -199,10 +199,10 @@ SANDBOX_CONFIG='{
       "sandbox": {
         "mode": "non-main",
         "scope": "agent",
-        "workspaceAccess": "none",
+        "workspaceAccess": "rw",
         "workspaceRoot": "~/.openclaw/sandboxes",
         "docker": {
-          "image": "openclaw-sandbox:bookworm-slim",
+          "image": "openclaw-sandbox-common:bookworm-slim",
           "containerPrefix": "openclaw-sbx-",
           "workdir": "/workspace",
           "readOnlyRoot": true,
