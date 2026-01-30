@@ -290,20 +290,17 @@ EOF
 
 cat > ~/bin/openclaw-restart << 'EOF'
 #!/bin/bash
-orb -m openclaw-vm bash -c "sudo systemctl restart openclaw"
-echo "Gateway 已重启"
+orb -m openclaw-vm bash -c "cd ~/openclaw && node dist/entry.js gateway restart"
 EOF
 
 cat > ~/bin/openclaw-stop << 'EOF'
 #!/bin/bash
-orb -m openclaw-vm bash -c "sudo systemctl stop openclaw"
-echo "Gateway 已停止"
+orb -m openclaw-vm bash -c "cd ~/openclaw && node dist/entry.js gateway stop"
 EOF
 
 cat > ~/bin/openclaw-start << 'EOF'
 #!/bin/bash
-orb -m openclaw-vm bash -c "sudo systemctl start openclaw"
-echo "Gateway 已启动"
+orb -m openclaw-vm bash -c "cd ~/openclaw && node dist/entry.js gateway start"
 EOF
 
 cat > ~/bin/openclaw-shell << 'EOF'
@@ -432,7 +429,7 @@ vm_exec 'cat > /tmp/sandbox-config.json << '\''SANDBOX_EOF'\''
   "agents": {
     "defaults": {
       "sandbox": {
-        "mode": "non-main",
+        "mode": "all",
         "scope": "agent",
         "workspaceAccess": "rw",
         "workspaceRoot": "~/.openclaw/sandboxes",
@@ -441,9 +438,9 @@ vm_exec 'cat > /tmp/sandbox-config.json << '\''SANDBOX_EOF'\''
           "containerPrefix": "openclaw-sbx-",
           "workdir": "/workspace",
           "readOnlyRoot": true,
-          "tmpfs": ["/tmp", "/var/tmp", "/run"],
-          "network": "none",
-          "user": "1000:1000",
+          "tmpfs": ["/tmp:exec,mode=1777", "/var/tmp", "/run"],
+          "network": "bridge",
+          "user": "501:501",
           "capDrop": ["ALL"],
           "env": {
             "LANG": "C.UTF-8"
@@ -455,7 +452,10 @@ vm_exec 'cat > /tmp/sandbox-config.json << '\''SANDBOX_EOF'\''
         },
         "browser": {
           "enabled": true,
-          "image": "openclaw-sandbox-browser:bookworm-slim"
+          "image": "openclaw-sandbox-browser:bookworm-slim",
+          "autoStart": true,
+          "autoStartTimeoutMs": 30000,
+          "allowHostControl": true
         },
         "prune": {
           "idleHours": 24,
@@ -463,6 +463,17 @@ vm_exec 'cat > /tmp/sandbox-config.json << '\''SANDBOX_EOF'\''
         }
       }
     }
+  },
+  "tools": {
+    "sandbox": {
+      "tools": {
+        "allow": ["group:runtime", "group:fs", "group:sessions", "group:ui"],
+        "deny": ["canvas", "nodes", "cron", "gateway", "telegram", "whatsapp", "discord", "googlechat", "slack", "signal", "imessage"]
+      }
+    }
+  },
+  "browser": {
+    "enabled": true
   }
 }
 SANDBOX_EOF'
@@ -480,12 +491,22 @@ if os.path.exists(config_path):
     with open(sandbox_path, "r") as f:
         sandbox = json.load(f)
     
-    # Deep merge
+    # Deep merge agents.defaults.sandbox
     if "agents" not in config:
         config["agents"] = {}
     if "defaults" not in config["agents"]:
         config["agents"]["defaults"] = {}
     config["agents"]["defaults"]["sandbox"] = sandbox["agents"]["defaults"]["sandbox"]
+    
+    # Merge tools.sandbox.tools
+    if "tools" not in config:
+        config["tools"] = {}
+    if "sandbox" not in config["tools"]:
+        config["tools"]["sandbox"] = {}
+    config["tools"]["sandbox"]["tools"] = sandbox["tools"]["sandbox"]["tools"]
+    
+    # Merge browser
+    config["browser"] = sandbox["browser"]
     
     with open(config_path, "w") as f:
         json.dump(config, f, indent=2)

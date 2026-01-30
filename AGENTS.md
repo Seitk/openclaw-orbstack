@@ -63,7 +63,7 @@ OpenClawOrb/
 5. **Access URL**: `http://openclaw-vm.orb.local:18789`
 6. **Config file**: `~/.openclaw/openclaw.json`
 7. **Sandbox images**: `sandbox-common`, `sandbox-browser`
-8. **Security**: `network: none`, `readOnlyRoot: true`, `capDrop: ALL`
+8. **Security**: `network: bridge`, `readOnlyRoot: true`, `capDrop: ALL` (Docker containers protect Mac files)
 
 ## Mac Commands (11)
 

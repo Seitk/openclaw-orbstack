@@ -171,14 +171,15 @@ OpenClaw 使用 **JSON5** 格式，支持：
     defaults: {
       workspace: "~/.openclaw/workspace",
       model: { primary: "anthropic/claude-sonnet-4-5" },
-      // 完全沙箱隔离
+      // 完全沙箱隔离 (浏览器需要网络，但 Mac 文件仍然隔离)
       sandbox: {
         mode: "all",
         scope: "session",
         workspaceAccess: "rw",
         docker: {
-          network: "none",
-          readOnlyRoot: true
+          network: "bridge",  // 浏览器自动化需要网络
+          readOnlyRoot: true,
+          user: "501:501"     // macOS 用户权限
         }
       }
     }
@@ -209,7 +210,7 @@ OpenClaw 使用 **JSON5** 格式，支持：
     defaults: {
       workspace: "~/.openclaw/workspace",
       model: { primary: "anthropic/claude-sonnet-4-5" },
-      sandbox: { mode: "non-main", workspaceAccess: "rw" }
+      sandbox: { mode: "all", workspaceAccess: "rw" }  // all 模式支持浏览器
     }
   },
   
@@ -253,7 +254,7 @@ OpenClaw 使用 **JSON5** 格式，支持：
         scope: "session",
         workspaceAccess: "none",  // 无文件访问
         docker: {
-          network: "none",
+          network: "bridge",  // 即使有网络，Mac 文件仍然隔离
           memory: "512m",
           cpus: 0.5
         }
@@ -292,7 +293,7 @@ OpenClaw 使用 **JSON5** 格式，支持：
   agents: {
     defaults: {
       workspace: "~/.openclaw/workspace",
-      sandbox: { mode: "non-main" }
+      sandbox: { mode: "all" }  // 推荐 all 模式
     },
     list: [
       {
@@ -300,7 +301,7 @@ OpenClaw 使用 **JSON5** 格式，支持：
         default: true,
         workspace: "~/.openclaw/workspace-personal",
         model: { primary: "anthropic/claude-opus-4-5" },
-        sandbox: { mode: "off" }  // 个人 Agent 不使用沙箱
+        sandbox: { mode: "all" }  // 建议保持沙箱保护 Mac 文件
       },
       {
         id: "work",
@@ -451,23 +452,34 @@ OpenClaw 使用 **JSON5** 格式，支持：
 | `docker.memory` | 内存限制 | `"1g"`, `"512m"` |
 | `docker.cpus` | CPU 限制 | `1`, `0.5` |
 
-**推荐配置**:
+**推荐配置** (OrbStack 环境):
 
 ```json5
 {
   sandbox: {
-    mode: "non-main",      // 推荐: 非主会话使用沙箱
+    mode: "all",           // 推荐: 所有会话使用沙箱 (保护 Mac 文件)
     scope: "agent",        // 每个 Agent 独立容器
     workspaceAccess: "rw", // 读写访问
     docker: {
       image: "openclaw-sandbox-common:bookworm-slim",
-      network: "none",     // 无网络 (最安全)
+      network: "bridge",   // 浏览器自动化需要网络
       readOnlyRoot: true,
+      tmpfs: ["/tmp:exec,mode=1777", "/var/tmp", "/run"],  // Playwright 需要
+      user: "501:501",     // macOS 用户权限
       memory: "1g",
       cpus: 1
+    },
+    browser: {
+      enabled: true,
+      autoStart: true,
+      autoStartTimeoutMs: 30000
     }
   }
 }
+```
+
+> **注意**: OrbStack VM 通过 `/mnt/mac` 可访问 Mac 文件，所以 Docker 容器是唯一的隔离层。
+> 即使设置 `network: "bridge"`，Mac 文件仍然受到保护，因为容器只能访问挂载的 `/workspace`。
 ```
 
 ### TTS 语音配置

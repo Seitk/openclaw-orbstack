@@ -24,7 +24,7 @@
 │  │  │  │ (代码执行)           │  │ (浏览器自动化)       │               │    ││
 │  │  │  │                     │  │                     │               │    ││
 │  │  │  │ - exec/read/write   │  │ - Chromium          │               │    ││
-│  │  │  │ - network: none     │  │ - CDP protocol      │               │    ││
+│  │  │  │ - network: bridge   │  │ - CDP protocol      │               │    ││
 │  │  │  │ - 完全隔离           │  │ - 可访问网络         │               │    ││
 │  │  │  └─────────────────────┘  └─────────────────────┘               │    ││
 │  │  └─────────────────────────────────────────────────────────────────┘    ││
@@ -143,12 +143,14 @@ Gateway (VM 进程)
 │                                         │
 │  sandbox-common        sandbox-browser  │
 │  ┌─────────────┐      ┌─────────────┐  │
-│  │ network:none│      │ network:yes │  │
+│  │ network:    │      │ network:    │  │
+│  │   bridge    │      │   bridge    │  │
 │  │ 代码执行     │      │ 浏览器控制   │  │
-│  │ 完全隔离     │      │ CDP 协议    │  │
 │  └─────────────┘      └─────────────┘  │
 └─────────────────────────────────────────┘
 ```
 
-- **代码沙箱**: `network: none`，通过 Docker exec API 通信
-- **浏览器沙箱**: 需要网络，通过 CDP (Chrome DevTools Protocol) 通信
+- **代码沙箱**: `network: bridge`，通过 Docker exec API 通信（网络可访问但 Mac 文件隔离）
+- **浏览器沙箱**: `network: bridge`，通过 CDP (Chrome DevTools Protocol) 通信
+
+**重要**: Docker 容器是保护 Mac 文件的唯一隔离层。VM 通过 `/mnt/mac` 可访问 Mac 文件。

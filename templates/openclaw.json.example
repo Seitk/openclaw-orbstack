@@ -163,10 +163,10 @@
       // ========== 沙箱配置 (代码执行环境) ==========
       sandbox: {
         // 沙箱模式:
-        //   "off"      - 不使用沙箱 (直接在宿主执行)
-        //   "non-main" - 非主会话使用沙箱 (推荐)
-        //   "all"      - 所有会话都使用沙箱
-        mode: "non-main",
+        //   "off"      - 不使用沙箱 (危险：AI 可访问 /mnt/mac)
+        //   "non-main" - 非主会话使用沙箱 (main session 无法用 sandbox browser)
+        //   "all"      - 所有会话都使用沙箱 (推荐：所有功能可用)
+        mode: "all",
         
         // 隔离范围:
         //   "session" - 每个会话独立容器
@@ -193,15 +193,15 @@
           workdir: "/workspace",
           // 根文件系统只读
           readOnlyRoot: true,
-          // tmpfs 挂载点
-          tmpfs: ["/tmp", "/var/tmp", "/run"],
+          // tmpfs 挂载点 (/tmp 需要 exec 权限让 Playwright 能执行)
+          tmpfs: ["/tmp:exec,mode=1777", "/var/tmp", "/run"],
           // 网络模式:
-          //   "none"   - 无网络 (最安全)
-          //   "bridge" - 桥接网络
+          //   "none"   - 无网络 (代码执行最安全，但浏览器无法上网)
+          //   "bridge" - 桥接网络 (推荐：浏览器可上网，Docker 仍隔离 Mac 文件系统)
           //   "host"   - 主机网络
-          network: "none",
-          // 运行用户
-          user: "1000:1000",
+          network: "bridge",
+          // 运行用户 (macOS 默认用户是 501:501，需要匹配 workspace 权限)
+          user: "501:501",
           // 放弃的 Linux capabilities
           capDrop: ["ALL"],
           // 环境变量 (OPENCLAW_GATEWAY_TOKEN 用于沙箱与网关通信)
@@ -224,11 +224,14 @@
           // extraHosts: ["myhost:192.168.1.1"]
         },
         
-        // 浏览器沙箱 (playwright)
+        // 浏览器沙箱 (Playwright)
         browser: {
           enabled: true,
           image: "openclaw-sandbox-browser:bookworm-slim",
           headless: true,
+          autoStart: true,              // 自动启动浏览器沙箱
+          autoStartTimeoutMs: 30000,    // 启动超时 30 秒
+          allowHostControl: true,       // 允许 target="host" 访问宿主浏览器
           // 浏览器沙箱也需要 token
           env: {
             LANG: "C.UTF-8",
@@ -523,29 +526,19 @@
   // 六、工具权限配置
   // --------------------------------------------------------------------------
   tools: {
-    // 允许的工具
-    allow: [
-      "exec",          // 执行命令
-      "process",       // 进程管理
-      "read",          // 读取文件
-      "write",         // 写入文件
-      "edit",          // 编辑文件
-      "apply_patch",   // 应用补丁
-      "sessions_list",
-      "sessions_history",
-      "sessions_send",
-      "sessions_spawn",
-      "session_status",
-      "browser"        // 浏览器工具
-    ],
-    
-    // 禁止的工具
-    deny: [
-      "canvas",
-      "nodes",
-      "cron",
-      "gateway"
-    ],
+    // 沙箱工具权限 (仅在沙箱模式下生效)
+    sandbox: {
+      tools: {
+        // 允许的工具组:
+        //   group:runtime  = exec, bash, process
+        //   group:fs       = read, write, edit, apply_patch
+        //   group:sessions = sessions_list, sessions_history, sessions_send, sessions_spawn, session_status
+        //   group:ui       = browser, canvas
+        allow: ["group:runtime", "group:fs", "group:sessions", "group:ui"],
+        // 禁止的工具 (会覆盖 allow，包括 group:ui 中的 canvas)
+        deny: ["canvas", "nodes", "cron", "gateway", "telegram", "whatsapp", "discord", "googlechat", "slack", "signal", "imessage"]
+      }
+    },
     
     // 执行工具配置
     exec: {
@@ -882,5 +875,13 @@
     // presets: ["gmail"],
     // transformsDir: "~/.openclaw/hooks",
     // mappings: [...]
+  },
+
+  // --------------------------------------------------------------------------
+  // 十七、浏览器工具 (全局开关)
+  // --------------------------------------------------------------------------
+  browser: {
+    enabled: true     // 启用浏览器工具
+    // 更多选项见官方文档: https://docs.openclaw.ai/tools/browser
   }
 }
