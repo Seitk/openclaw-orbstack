@@ -1,8 +1,18 @@
 #!/bin/bash
 # ============================================================================
-# OpenClaw OrbStack 一键部署脚本
+# OpenClaw OrbStack 一键部署脚本 (本地安装版)
 #
-# 在 Mac 终端运行，自动完成全部部署：
+# 架构: Gateway 直接运行在 VM 上，沙箱在 Docker 容器中
+#
+#   Mac
+#   └── OrbStack
+#       └── Ubuntu VM (openclaw-vm)
+#           ├── Gateway 进程 (Node.js, systemd 管理)
+#           └── Docker
+#               ├── sandbox-common 容器
+#               └── sandbox-browser 容器
+#
+# 在 Mac 终端运行：
 #   bash openclaw-orbstack-setup.sh
 #
 # 前置条件：
@@ -11,13 +21,13 @@
 #
 # 脚本共 8 步：
 #   1. 检查 OrbStack         — 确认 orb 命令可用
-#   2. 创建 Ubuntu VM        — OrbStack 轻量虚拟机 openclaw-vm
-#   3. 安装 Docker           — VM 内安装 Docker Engine
-#   4. 克隆 OpenClaw          — 从 GitHub 拉取源码
-#   5. 构建镜像              — 主程序 + 沙箱容器镜像
-#   6. 写入沙箱安全配置       — 容器隔离、资源限制、工具权限
+#   2. 创建 Ubuntu VM        — OrbStack 轻量虚拟机
+#   3. 安装 Docker           — VM 内安装 Docker Engine (仅供沙箱使用)
+#   4. 安装 Node.js          — 安装 Node.js 20.x LTS
+#   5. 克隆并构建 OpenClaw    — 本地编译 (npm install + build)
+#   6. 构建沙箱镜像           — sandbox-common + sandbox-browser
 #   7. 运行配置向导           — 设置 API Key 和聊天平台
-#   8. 合并配置 + 便捷命令    — 最终配置合并，创建 Mac 端快捷命令
+#   8. 配置 systemd 服务      — Gateway 开机自启 + Mac 端快捷命令
 #
 # ============================================================================
 
@@ -30,17 +40,16 @@ YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-# --- 配置 ---
-VM_NAME="openclaw-vm"
-VM_DISTRO="ubuntu"
+# --- 配置 (可通过环境变量覆盖) ---
+VM_NAME="${OPENCLAW_VM_NAME:-openclaw-vm}"
+VM_DISTRO="${OPENCLAW_VM_DISTRO:-ubuntu}"
+GATEWAY_PORT="${OPENCLAW_PORT:-18789}"
 TOTAL_STEPS=8
 
 # --- 可选环境变量 ---
-# OPENCLAW_EXTRA_MOUNTS       - 额外挂载目录 (逗号分隔, 如: $HOME/.ssh:/home/node/.ssh:ro)
-# OPENCLAW_DOCKER_APT_PACKAGES - 额外安装的 apt 包 (空格分隔, 如: ffmpeg imagemagick)
-# OPENCLAW_SETUP_COMMAND      - 沙箱启动时执行的命令
-# OPENCLAW_DNS                - 自定义 DNS 服务器 (逗号分隔, 如: 1.1.1.1,8.8.8.8)
-# OPENCLAW_EXTRA_HOSTS        - 额外 hosts 映射 (逗号分隔, 如: myhost:192.168.1.1)
+# OPENCLAW_VM_NAME            - 虚拟机名称 (默认: openclaw-vm)
+# OPENCLAW_VM_DISTRO          - 虚拟机发行版 (默认: ubuntu)
+# OPENCLAW_PORT               - 网关端口 (默认: 18789)
 
 # --- 输出函数 ---
 step()    { echo -e "\n${CYAN}[$1/$TOTAL_STEPS] $2${NC}"; }
@@ -73,9 +82,6 @@ ok "OrbStack 已安装: $(orb version 2>/dev/null || echo 'unknown')"
 
 # ============================================================================
 # 步骤 2/8: 创建 Ubuntu VM
-#   - 虚拟机名称: openclaw-vm
-#   - 系统: Ubuntu (OrbStack 默认最新 LTS)
-#   - 如果已存在则直接启动
 # ============================================================================
 step 2 "创建 Ubuntu VM"
 
@@ -94,17 +100,14 @@ sleep 3
 ok "虚拟机已就绪"
 
 # ============================================================================
-# 步骤 3/8: 在 VM 中安装 Docker Engine
-#   - 使用 Docker 官方安装脚本 (https://get.docker.com)
-#   - 将当前用户加入 docker 组
-#   - 启用 Docker 服务开机自启
+# 步骤 3/8: 安装 Docker Engine (仅供沙箱使用)
 # ============================================================================
 step 3 "安装 Docker"
 
 if vm_exec "command -v docker &> /dev/null"; then
     ok "Docker 已安装: $(vm_exec 'docker --version' 2>/dev/null)"
 else
-    info "安装 Docker Engine (官方脚本)..."
+    info "安装 Docker Engine..."
     vm_exec "curl -fsSL https://get.docker.com | sh"
     vm_exec "sudo usermod -aG docker \$USER"
 fi
@@ -113,12 +116,37 @@ vm_exec "sudo systemctl enable docker && sudo systemctl start docker" || true
 ok "Docker 服务已启动"
 
 # ============================================================================
-# 步骤 4/8: 克隆 OpenClaw 仓库
-#   - 源码地址: https://github.com/openclaw/openclaw.git
-#   - 克隆到 VM 的 ~/openclaw 目录
-#   - 如果已存在则 git pull 更新
+# 步骤 4/8: 安装 Node.js 20.x LTS
 # ============================================================================
-step 4 "获取 OpenClaw 源码"
+step 4 "安装 Node.js"
+
+REQUIRED_NODE_MAJOR=22
+
+if vm_exec "command -v node &> /dev/null"; then
+    NODE_VERSION=$(vm_exec 'node --version' 2>/dev/null)
+    NODE_MAJOR=$(echo "$NODE_VERSION" | sed 's/v\([0-9]*\).*/\1/')
+    if [ "$NODE_MAJOR" -ge "$REQUIRED_NODE_MAJOR" ]; then
+        ok "Node.js 已安装: $NODE_VERSION"
+    else
+        info "Node.js $NODE_VERSION 版本过低，升级到 22.x..."
+        vm_exec "curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -"
+        vm_exec "sudo apt-get install -y nodejs"
+        ok "Node.js 已升级: $(vm_exec 'node --version')"
+    fi
+else
+    info "安装 Node.js 22.x..."
+    vm_exec "curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -"
+    vm_exec "sudo apt-get install -y nodejs"
+    ok "Node.js 已安装: $(vm_exec 'node --version')"
+fi
+
+# 安装构建工具
+vm_exec "sudo apt-get install -y build-essential git" || true
+
+# ============================================================================
+# 步骤 5/8: 克隆并构建 OpenClaw
+# ============================================================================
+step 5 "克隆并构建 OpenClaw"
 
 if vm_exec "test -d ~/openclaw"; then
     info "仓库已存在，拉取最新代码..."
@@ -128,72 +156,263 @@ else
     vm_exec "git clone https://github.com/openclaw/openclaw.git ~/openclaw"
 fi
 
-ok "源码已就绪: ~/openclaw"
+info "安装依赖 (npm install)..."
+vm_exec "cd ~/openclaw && npm install"
+
+info "编译项目 (npm run build)..."
+vm_exec "cd ~/openclaw && npm run build"
+
+info "全局安装 CLI..."
+vm_exec "cd ~/openclaw && sudo npm install -g ."
+
+ok "OpenClaw 构建完成 (CLI: openclaw)"
 
 # ============================================================================
-# 步骤 5/8: 构建 Docker 镜像
-#   构建两个镜像:
-#   - openclaw:local           — 主程序（网关 + CLI）
-#   - openclaw-sandbox:bookworm-slim — 沙箱执行环境（Debian Bookworm 精简版）
+# 步骤 6/8: 构建沙箱 Docker 镜像
 # ============================================================================
-step 5 "构建 Docker 镜像"
+step 6 "构建沙箱镜像"
 
-info "构建主镜像 openclaw:local ..."
-vm_exec "cd ~/openclaw && sg docker -c 'docker build -t openclaw:local -f Dockerfile .'"
-ok "主镜像构建完成"
+info "构建通用沙箱镜像..."
+if vm_exec "cd ~/openclaw && sg docker -c './scripts/sandbox-setup.sh'" 2>/dev/null; then
+    ok "sandbox 镜像构建完成"
+elif vm_exec "cd ~/openclaw && sg docker -c 'docker build -t openclaw-sandbox:bookworm-slim -f Dockerfile.sandbox .'" 2>/dev/null; then
+    ok "sandbox 镜像构建完成 (Dockerfile)"
+else
+    warn "sandbox 镜像构建失败，跳过"
+fi
 
-info "构建沙箱镜像 openclaw-sandbox:bookworm-slim ..."
-vm_exec "cd ~/openclaw && sg docker -c './scripts/sandbox-setup.sh'" 2>/dev/null || \
-vm_exec "cd ~/openclaw && sg docker -c 'docker build -t openclaw-sandbox:bookworm-slim -f Dockerfile.sandbox .'" || true
-ok "沙箱镜像构建完成"
+info "构建浏览器沙箱镜像..."
+if vm_exec "cd ~/openclaw && sg docker -c './scripts/sandbox-browser-setup.sh'" 2>/dev/null; then
+    ok "sandbox-browser 镜像构建完成"
+elif vm_exec "cd ~/openclaw && sg docker -c 'docker build -t openclaw-sandbox-browser:bookworm-slim -f Dockerfile.sandbox-browser .'" 2>/dev/null; then
+    ok "sandbox-browser 镜像构建完成 (Dockerfile)"
+else
+    warn "sandbox-browser 镜像构建失败，跳过"
+fi
 
-info "构建浏览器沙箱镜像 openclaw-sandbox-browser:bookworm-slim ..."
-vm_exec "cd ~/openclaw && sg docker -c './scripts/sandbox-browser-setup.sh'" 2>/dev/null || \
-vm_exec "cd ~/openclaw && sg docker -c 'docker build -t openclaw-sandbox-browser:bookworm-slim -f Dockerfile.sandbox-browser .'" || true
-ok "浏览器沙箱镜像构建完成"
-
-info "构建通用沙箱镜像 openclaw-sandbox-common:bookworm-slim ..."
-vm_exec "cd ~/openclaw && sg docker -c './scripts/sandbox-common-setup.sh'" 2>/dev/null || \
-vm_exec "cd ~/openclaw && sg docker -c 'docker build -t openclaw-sandbox-common:bookworm-slim -f Dockerfile.sandbox-common .'" || true
-ok "通用沙箱镜像构建完成"
+info "构建 common 沙箱镜像..."
+if vm_exec "cd ~/openclaw && sg docker -c './scripts/sandbox-common-setup.sh'" 2>/dev/null; then
+    ok "sandbox-common 镜像构建完成"
+elif vm_exec "cd ~/openclaw && sg docker -c 'docker build -t openclaw-sandbox-common:bookworm-slim -f Dockerfile.sandbox-common .'" 2>/dev/null; then
+    ok "sandbox-common 镜像构建完成 (Dockerfile)"
+else
+    warn "sandbox-common 镜像构建失败，跳过"
+fi
 
 # ============================================================================
-# 步骤 6/8: 写入沙箱安全配置
-#
-#   准备沙箱配置文件（步骤 8 中合并到 Docker volume）
-#
-#   安全设置一览:
-#   ┌─────────────────┬──────────────────────────┬──────────────────────────────┐
-#   │ 设置项           │ 值                       │ 含义                         │
-#   ├─────────────────┼──────────────────────────┼──────────────────────────────┤
-#   │ mode            │ non-main                 │ 非主会话在沙箱中执行           │
-#   │ scope           │ agent                    │ 每个 Agent 一个独立容器        │
-#   │ workspaceAccess │ none                     │ 沙箱不访问宿主工作区           │
-#   │ workspaceRoot   │ ~/.openclaw/sandboxes    │ 沙箱工作区存储目录             │
-#   │ network         │ none                     │ 容器无网络访问                │
-#   │ readOnlyRoot    │ true                     │ 根文件系统只读                │
-#   │ capDrop         │ ALL                      │ 放弃所有 Linux capabilities   │
-#   │ user            │ 1000:1000                │ 非 root 用户运行              │
-#   │ memory          │ 1g (swap 2g)             │ 内存限制                     │
-#   │ cpus            │ 1                        │ CPU 限制                     │
-#   │ pidsLimit       │ 256                      │ 最大进程数                    │
-#   │ ulimits.nofile  │ 1024/2048                │ 文件描述符限制                │
-#   │ prune           │ 24h idle / 7d max        │ 自动清理空闲容器              │
-#   └─────────────────┴──────────────────────────┴──────────────────────────────┘
-#
-#   工具权限:
-#     允许: exec, process, read, write, edit, apply_patch, sessions_*
-#     禁止: browser, canvas, nodes, cron, discord, gateway
-#
+# 步骤 7/8: 运行配置向导
 # ============================================================================
-step 6 "准备沙箱安全配置"
+step 7 "运行配置向导"
 
-# 先在宿主写好配置文件，步骤 7 docker-setup.sh 运行后再合并
-# 使用 OPENCLAW_HOME_VOLUME 让容器自由管理 /home/node（避免 bind mount 的权限和 rename 问题）
-vm_exec 'mkdir -p ~/openclaw-sandbox-config'
+echo ""
+info "接下来进入交互式配置，请准备："
+info "  - AI 模型 API Key（支持 Anthropic / OpenAI / OpenRouter 等）"
+info "  - Telegram Bot Token (从 @BotFather 获取) 或其他平台凭据"
+echo ""
+echo -e "${YELLOW}按 Enter 继续...${NC}"
+read -r
 
-# 构建动态配置
-SANDBOX_CONFIG='{
+vm_exec "mkdir -p ~/.openclaw"
+vm_exec "openclaw setup"
+
+ok "配置向导完成"
+
+# ============================================================================
+# 步骤 8/8: 配置 systemd 服务 + Mac 端便捷命令
+# ============================================================================
+step 8 "配置服务与便捷命令"
+
+# --- 创建 systemd 服务 ---
+info "创建 systemd 服务..."
+
+VM_USER=$(vm_exec 'whoami')
+VM_HOME=$(vm_exec 'echo $HOME')
+
+vm_exec "sudo tee /etc/systemd/system/openclaw.service > /dev/null << 'SYSTEMD_EOF'
+[Unit]
+Description=OpenClaw Gateway
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+User=$VM_USER
+WorkingDirectory=$VM_HOME/openclaw
+ExecStart=/usr/bin/node $VM_HOME/openclaw/dist/entry.js gateway --port 18789
+Restart=always
+RestartSec=5
+KillMode=process
+Environment=NODE_ENV=production
+Environment=HOME=$VM_HOME
+
+[Install]
+WantedBy=multi-user.target
+SYSTEMD_EOF"
+
+vm_exec "sudo systemctl daemon-reload"
+vm_exec "sudo systemctl enable openclaw"
+vm_exec "sudo systemctl start openclaw"
+
+sleep 3
+
+if vm_exec "systemctl is-active openclaw" | grep -q "active"; then
+    ok "Gateway 服务已启动"
+else
+    warn "Gateway 服务启动可能有问题，请检查: openclaw-logs"
+fi
+
+# --- 创建 Mac 端便捷命令 ---
+mkdir -p ~/bin
+
+cat > ~/bin/openclaw-status << 'EOF'
+#!/bin/bash
+orb -m openclaw-vm bash -c "systemctl status openclaw"
+EOF
+
+cat > ~/bin/openclaw-logs << 'EOF'
+#!/bin/bash
+orb -m openclaw-vm bash -c "journalctl -u openclaw -f"
+EOF
+
+cat > ~/bin/openclaw-restart << 'EOF'
+#!/bin/bash
+orb -m openclaw-vm bash -c "sudo systemctl restart openclaw"
+echo "Gateway 已重启"
+EOF
+
+cat > ~/bin/openclaw-stop << 'EOF'
+#!/bin/bash
+orb -m openclaw-vm bash -c "sudo systemctl stop openclaw"
+echo "Gateway 已停止"
+EOF
+
+cat > ~/bin/openclaw-start << 'EOF'
+#!/bin/bash
+orb -m openclaw-vm bash -c "sudo systemctl start openclaw"
+echo "Gateway 已启动"
+EOF
+
+cat > ~/bin/openclaw-shell << 'EOF'
+#!/bin/bash
+orb -m openclaw-vm
+EOF
+
+cat > ~/bin/openclaw << 'EOF'
+#!/bin/bash
+# OpenClaw CLI - 透传到 VM 的官方 CLI
+if [ $# -eq 0 ]; then
+    set -- "--help"
+fi
+orb -m openclaw-vm bash -c "openclaw $*"
+EOF
+
+cat > ~/bin/openclaw-config << 'EOF'
+#!/bin/bash
+ACTION="${1:-edit}"
+CONFIG_PATH="$HOME/.openclaw/openclaw.json"
+
+case "$ACTION" in
+    edit)
+        echo "正在打开配置编辑器..."
+        orb -m openclaw-vm bash -c "nano ~/.openclaw/openclaw.json 2>/dev/null || vi ~/.openclaw/openclaw.json"
+        echo "配置已保存。运行 openclaw-restart 使更改生效。"
+        ;;
+    show)
+        orb -m openclaw-vm bash -c "cat ~/.openclaw/openclaw.json"
+        ;;
+    backup)
+        BACKUP="openclaw-config-$(date +%Y%m%d-%H%M%S).json"
+        orb -m openclaw-vm bash -c "cat ~/.openclaw/openclaw.json" > "$BACKUP"
+        echo "已备份到: $BACKUP"
+        ;;
+    *)
+        echo "用法: openclaw-config [edit|show|backup]"
+        ;;
+esac
+EOF
+
+cat > ~/bin/openclaw-update << 'EOF'
+#!/bin/bash
+set -e
+echo "🔄 正在更新 OpenClaw..."
+
+echo "  停止服务..."
+orb -m openclaw-vm bash -c "sudo systemctl stop openclaw"
+
+echo "  拉取最新代码..."
+orb -m openclaw-vm bash -c "cd ~/openclaw && git pull"
+
+echo "  安装依赖..."
+orb -m openclaw-vm bash -c "cd ~/openclaw && npm install"
+
+echo "  编译项目..."
+orb -m openclaw-vm bash -c "cd ~/openclaw && npm run build"
+
+echo "  重新安装 CLI..."
+orb -m openclaw-vm bash -c "cd ~/openclaw && sudo npm install -g ."
+
+echo "  更新沙箱镜像..."
+orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c './scripts/sandbox-setup.sh'" 2>/dev/null || true
+orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c './scripts/sandbox-browser-setup.sh'" 2>/dev/null || true
+orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c './scripts/sandbox-common-setup.sh'" 2>/dev/null || true
+
+echo "  启动服务..."
+orb -m openclaw-vm bash -c "sudo systemctl start openclaw"
+
+echo "✅ 更新完成！"
+EOF
+
+cat > ~/bin/openclaw-telegram << 'EOF'
+#!/bin/bash
+# Telegram Bot 管理
+ACTION="${1:-help}"
+
+case "$ACTION" in
+    add)
+        if [ -z "$2" ]; then
+            echo "用法: openclaw-telegram add <bot_token>"
+            echo "从 @BotFather 获取 token"
+            exit 1
+        fi
+        orb -m openclaw-vm bash -c "openclaw channels add --channel telegram --token $2"
+        ;;
+    approve)
+        if [ -z "$2" ]; then
+            echo "用法: openclaw-telegram approve <pairing_code>"
+            echo "输入 Bot 发给你的配对码"
+            exit 1
+        fi
+        orb -m openclaw-vm bash -c "openclaw pairing approve telegram $2"
+        ;;
+    *)
+        echo "Telegram Bot 管理"
+        echo ""
+        echo "用法:"
+        echo "  openclaw-telegram add <bot_token>      添加 Bot (从 @BotFather 获取)"
+        echo "  openclaw-telegram approve <code>       批准配对 (回执验证码)"
+        echo ""
+        echo "或直接使用:"
+        echo "  openclaw channels login --channel telegram"
+        ;;
+esac
+EOF
+
+cat > ~/bin/openclaw-whatsapp << 'EOF'
+#!/bin/bash
+# WhatsApp 登录 (扫码)
+orb -m openclaw-vm bash -c "openclaw channels login --channel whatsapp"
+EOF
+
+chmod +x ~/bin/openclaw-*
+chmod +x ~/bin/openclaw
+ok "便捷命令已创建"
+
+# --- 写入默认沙箱配置 ---
+info "写入沙箱配置..."
+
+vm_exec 'cat > /tmp/sandbox-config.json << '\''SANDBOX_EOF'\''
+{
   "agents": {
     "defaults": {
       "sandbox": {
@@ -216,11 +435,7 @@ SANDBOX_CONFIG='{
           "pidsLimit": 256,
           "memory": "1g",
           "memorySwap": "2g",
-          "cpus": 1,
-          "ulimits": {
-            "nofile": { "soft": 1024, "hard": 2048 },
-            "nproc": 256
-          }
+          "cpus": 1
         },
         "browser": {
           "enabled": true,
@@ -232,297 +447,83 @@ SANDBOX_CONFIG='{
         }
       }
     }
-  },
-  "tools": {
-    "sandbox": {
-      "tools": {
-        "allow": [
-          "exec",
-          "process",
-          "read",
-          "write",
-          "edit",
-          "apply_patch",
-          "sessions_list",
-          "sessions_history",
-          "sessions_send",
-          "sessions_spawn",
-          "session_status",
-          "browser"
-        ],
-        "deny": [
-          "canvas",
-          "nodes",
-          "cron",
-          "discord",
-          "gateway"
-        ]
-      }
-    }
   }
-}'
+}
+SANDBOX_EOF'
 
-# 应用可选环境变量配置
-if command -v jq &> /dev/null; then
-    if [ -n "$OPENCLAW_SETUP_COMMAND" ]; then
-        info "添加 setupCommand: $OPENCLAW_SETUP_COMMAND"
-        SANDBOX_CONFIG=$(echo "$SANDBOX_CONFIG" | jq --arg cmd "$OPENCLAW_SETUP_COMMAND" \
-            '.agents.defaults.sandbox.docker.setupCommand = $cmd')
-    fi
-
-    if [ -n "$OPENCLAW_DNS" ]; then
-        info "添加 DNS: $OPENCLAW_DNS"
-        DNS_ARRAY=$(echo "$OPENCLAW_DNS" | tr ',' '\n' | jq -R . | jq -s .)
-        SANDBOX_CONFIG=$(echo "$SANDBOX_CONFIG" | jq --argjson dns "$DNS_ARRAY" \
-            '.agents.defaults.sandbox.docker.dns = $dns')
-    fi
-
-    if [ -n "$OPENCLAW_EXTRA_HOSTS" ]; then
-        info "添加 extraHosts: $OPENCLAW_EXTRA_HOSTS"
-        HOSTS_ARRAY=$(echo "$OPENCLAW_EXTRA_HOSTS" | tr ',' '\n' | jq -R . | jq -s .)
-        SANDBOX_CONFIG=$(echo "$SANDBOX_CONFIG" | jq --argjson hosts "$HOSTS_ARRAY" \
-            '.agents.defaults.sandbox.docker.extraHosts = $hosts')
-    fi
-fi
-
-# 写入配置文件
-echo "$SANDBOX_CONFIG" | vm_exec 'cat > ~/openclaw-sandbox-config/sandbox-config.json'
-
-info "沙箱配置已准备: ~/openclaw-sandbox-config/sandbox-config.json"
-info ""
-info "安全设置:"
-info "  隔离模式     non-main     非主会话在沙箱中执行"
-info "  隔离范围     agent        每个 Agent 独立容器"
-info "  工作区访问   none         沙箱不访问宿主文件"
-info "  网络         none         容器完全隔离"
-info "  文件系统     只读根       防止容器篡改系统"
-info "  权限         capDrop ALL  放弃所有特权"
-info "  资源限制     1G RAM / 1 CPU / 256 进程"
-info "  自动清理     空闲 24h 或存活 7 天后删除"
-ok "沙箱配置已就绪"
-
-# ============================================================================
-# 步骤 7/8: 运行配置向导
-#   - 调用 OpenClaw 官方 docker-setup.sh
-#   - 需要输入: AI 模型 API Key + 聊天平台凭据 (Telegram/WhatsApp/...)
-#   - 支持: OpenCode Zen / Anthropic / OpenAI 等多种提供商
-#   - 设置 OPENCLAW_HOME_VOLUME=openclaw_home 使用 Docker named volume
-#     这样容器内 /home/node 整体持久化，可以自由完成 配置迁移
-#   - 向导会生成 config.json 和 docker-compose.yml
-# ============================================================================
-step 7 "运行配置向导"
-
-echo ""
-info "接下来进入交互式配置，请准备："
-info "  - AI 模型 API Key（支持 OpenCode Zen / Anthropic / OpenAI 等）"
-info "  - Telegram Bot Token (从 @BotFather 获取) 或其他平台凭据"
-echo ""
-echo -e "${YELLOW}按 Enter 继续...${NC}"
-read -r
-
-# Pre-create directories with correct ownership (container node user = uid 1000)
-vm_exec "mkdir -p ~/.openclaw ~/.openclaw/credentials ~/.openclaw/workspace"
-vm_exec "sudo chown -R 1000:1000 ~/.openclaw ~/.openclaw/workspace"
-
-# 构建环境变量
-DOCKER_ENV="OPENCLAW_HOME_VOLUME=openclaw_home"
-if [ -n "$OPENCLAW_EXTRA_MOUNTS" ]; then
-    info "配置额外挂载: $OPENCLAW_EXTRA_MOUNTS"
-    DOCKER_ENV="$DOCKER_ENV OPENCLAW_EXTRA_MOUNTS='$OPENCLAW_EXTRA_MOUNTS'"
-fi
-if [ -n "$OPENCLAW_DOCKER_APT_PACKAGES" ]; then
-    info "配置额外 apt 包: $OPENCLAW_DOCKER_APT_PACKAGES"
-    DOCKER_ENV="$DOCKER_ENV OPENCLAW_DOCKER_APT_PACKAGES='$OPENCLAW_DOCKER_APT_PACKAGES'"
-fi
-
-vm_exec "cd ~/openclaw && export $DOCKER_ENV && sg docker -c './docker-setup.sh'"
-ok "配置向导完成"
-
-# Fix EBUSY: docker-setup.sh uses -f flag which ignores override files
-# So we patch docker-compose.yml directly using Python (more reliable than sed for YAML)
-info "修复 EBUSY 迁移错误..."
-vm_exec 'cd ~/openclaw && sg docker -c "docker compose stop"'
-
-# Add OPENCLAW_STATE_DIR to both services using Python
-# This is more reliable than sed for modifying YAML structure
 vm_exec 'cd ~/openclaw && python3 << "PYEOF"
-import yaml
+import json
+import os
 
-with open("docker-compose.yml", "r") as f:
-    data = yaml.safe_load(f)
+config_path = os.path.expanduser("~/.openclaw/openclaw.json")
+sandbox_path = "/tmp/sandbox-config.json"
 
-# Add OPENCLAW_STATE_DIR to both services
-for svc in ["openclaw-gateway", "openclaw-cli"]:
-    if svc in data.get("services", {}):
-        if "environment" not in data["services"][svc]:
-            data["services"][svc]["environment"] = {}
-        data["services"][svc]["environment"]["OPENCLAW_STATE_DIR"] = "/home/node/.openclaw"
-
-with open("docker-compose.yml", "w") as f:
-    yaml.dump(data, f, default_flow_style=False, sort_keys=False)
-
-print("✓ OPENCLAW_STATE_DIR added to docker-compose.yml")
+if os.path.exists(config_path):
+    with open(config_path, "r") as f:
+        config = json.load(f)
+    with open(sandbox_path, "r") as f:
+        sandbox = json.load(f)
+    
+    # Deep merge
+    if "agents" not in config:
+        config["agents"] = {}
+    if "defaults" not in config["agents"]:
+        config["agents"]["defaults"] = {}
+    config["agents"]["defaults"]["sandbox"] = sandbox["agents"]["defaults"]["sandbox"]
+    
+    with open(config_path, "w") as f:
+        json.dump(config, f, indent=2)
+    print("merged")
+else:
+    print("config not found, skipping sandbox merge")
 PYEOF'
 
-# Restart with the patched config
-vm_exec 'cd ~/openclaw && sg docker -c "docker compose up -d"'
-ok "EBUSY 修复完成"
+ok "沙箱配置已写入"
 
-# ============================================================================
-# 步骤 8/8: 合并配置 + 创建便捷命令
-#   - 用 jq 将沙箱配置合并到主配置 config.json
-#   - 在 Mac 的 ~/bin/ 下创建快捷命令
-# ============================================================================
-step 8 "合并配置 + 创建便捷命令"
-
-# --- 合并沙箱配置到 Docker volume 内的 config.json ---
-# docker-setup.sh 生成的 config.json 在 named volume 里
-# 通过临时容器把沙箱配置复制进去并合并
-info "将沙箱配置合并到容器内..."
-
-vm_exec 'sg docker -c '\''
-    # 把宿主上的沙箱配置复制进 named volume
-    # 使用 root 用户运行临时容器，确保有权限操作 volume 内文件
-    docker run --rm -u root \
-        -v openclaw_home:/home/node \
-        -v ~/openclaw-sandbox-config:/tmp/sbx:ro \
-        openclaw:local \
-        sh -c "
-            CONFIG=/home/node/.openclaw/config.json
-            # 检查配置文件是否存在
-            [ -f /home/node/.openclaw/config.json ] && CONFIG=/home/node/.openclaw/config.json
-            if [ -f \$CONFIG ] && command -v jq >/dev/null 2>&1; then
-                jq -s \".[0] * .[1]\" \$CONFIG /tmp/sbx/sandbox-config.json > /tmp/merged.json
-                mv /tmp/merged.json \$CONFIG
-                echo merged
-            else
-                # jq 不可用或 config.json 不存在，直接复制
-                DIR=\$(dirname \$CONFIG)
-                mkdir -p \$DIR
-                cp /tmp/sbx/sandbox-config.json \$DIR/
-                echo copied
-            fi
-            # 修复 volume 内所有文件的所有权，确保 node 用户 (1000:1000) 有写权限
-            chown -R 1000:1000 /home/node
-        "
-    '\'''
-ok "沙箱配置已合并"
-
-# 启动容器
-vm_exec "cd ~/openclaw && sg docker -c 'docker compose up -d'"
-
-# --- 创建 Mac 端便捷命令 ---
-mkdir -p ~/bin
-
-cat > ~/bin/openclaw-status << 'EOF'
-#!/bin/bash
-orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c 'docker compose ps'"
-EOF
-
-cat > ~/bin/openclaw-logs << 'EOF'
-#!/bin/bash
-orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c 'docker compose logs -f openclaw-gateway'"
-EOF
-
-cat > ~/bin/openclaw-restart << 'EOF'
-#!/bin/bash
-orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c 'docker compose restart openclaw-gateway'"
-EOF
-
-cat > ~/bin/openclaw-stop << 'EOF'
-#!/bin/bash
-orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c 'docker compose down'"
-EOF
-
-cat > ~/bin/openclaw-start << 'EOF'
-#!/bin/bash
-orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c 'docker compose up -d'"
-EOF
-
-cat > ~/bin/openclaw-shell << 'EOF'
-#!/bin/bash
-orb -m openclaw-vm
-EOF
-
-cat > ~/bin/openclaw-doctor << 'EOF'
-#!/bin/bash
-# 运行诊断
-orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c '"'"'docker compose run --rm openclaw-cli doctor'"'"'"
-EOF
-
-cat > ~/bin/openclaw-health << 'EOF'
-#!/bin/bash
-# 健康检查
-TOKEN=$(orb -m openclaw-vm bash -c "cat ~/openclaw/.env 2>/dev/null | grep OPENCLAW_GATEWAY_TOKEN | cut -d= -f2")
-if [ -n "$TOKEN" ]; then
-    orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c '"'"'docker compose exec openclaw-gateway node dist/index.js health --token '"'"'$TOKEN'"'"''"'"'"
-else
-    echo "未找到 Gateway Token，请检查 .env 文件"
+# 检查 PATH
+if ! echo "$PATH" | grep -q "$HOME/bin"; then
+    if [ -f "$HOME/.zshrc" ]; then
+        SHELL_RC="$HOME/.zshrc"
+    else
+        SHELL_RC="$HOME/.bashrc"
+    fi
+    
+    if ! grep -q 'export PATH="\$HOME/bin:\$PATH"' "$SHELL_RC" 2>/dev/null; then
+        echo '' >> "$SHELL_RC"
+        echo '# OpenClaw CLI' >> "$SHELL_RC"
+        echo 'export PATH="$HOME/bin:$PATH"' >> "$SHELL_RC"
+        info "已添加 ~/bin 到 PATH ($SHELL_RC)"
+    fi
 fi
-EOF
-
-cat > ~/bin/openclaw-whatsapp << 'EOF'
-#!/bin/bash
-# WhatsApp 登录 (扫码)
-orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c '"'"'docker compose run --rm openclaw-cli channels login'"'"'"
-EOF
-
-cat > ~/bin/openclaw-telegram << 'EOF'
-#!/bin/bash
-# 添加 Telegram Bot
-if [ -z "$1" ]; then
-    echo "用法: openclaw-telegram <bot_token>"
-    echo "从 @BotFather 获取 token"
-    exit 1
-fi
-orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c '"'"'docker compose run --rm openclaw-cli channels add --channel telegram --token "$1"'"'"'"
-EOF
-
-cat > ~/bin/openclaw-discord << 'EOF'
-#!/bin/bash
-# 添加 Discord Bot
-if [ -z "$1" ]; then
-    echo "用法: openclaw-discord <bot_token>"
-    exit 1
-fi
-orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c '"'"'docker compose run --rm openclaw-cli channels add --channel discord --token "$1"'"'"'"
-EOF
-
-cat > ~/bin/openclaw-channels << 'EOF'
-#!/bin/bash
-# 列出所有频道
-orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c '"'"'docker compose run --rm openclaw-cli channels list'"'"'" 2>/dev/null || \
-orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c '"'"'docker compose run --rm openclaw-cli channels'"'"'"
-EOF
-
-chmod +x ~/bin/openclaw-*
-ok "便捷命令已创建到 ~/bin/"
 
 # ============================================================================
 # 完成
 # ============================================================================
 echo ""
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${GREEN}部署完成${NC}"
+echo -e "${GREEN}部署完成！${NC}"
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
-echo "访问地址: http://${VM_NAME}.orb.local:18789"
+echo "架构:"
+echo "  Mac → OrbStack → Ubuntu VM"
+echo "                   ├── Gateway (systemd 服务)"
+echo "                   └── Docker (沙箱容器)"
 echo ""
-echo "Mac 端命令 (需将 ~/bin 加入 PATH):"
-echo "  openclaw-status    查看服务状态"
-echo "  openclaw-logs      实时日志"
-echo "  openclaw-restart   重启服务"
-echo "  openclaw-stop      停止服务"
-echo "  openclaw-start     启动服务"
-echo "  openclaw-shell     进入 VM 终端"
-echo "  openclaw-doctor    运行诊断"
-echo "  openclaw-health    健康检查"
-echo "  openclaw-whatsapp  WhatsApp 登录 (扫码)"
-echo "  openclaw-telegram  添加 Telegram Bot"
-echo "  openclaw-discord   添加 Discord Bot"
-echo "  openclaw-channels  列出所有频道"
+echo "访问地址: http://${VM_NAME}.orb.local:${GATEWAY_PORT}"
 echo ""
-echo "加入 PATH (添加到 ~/.zshrc):"
-echo '  export PATH="$HOME/bin:$PATH"'
+echo "Mac 端命令:"
+echo ""
+echo -e "  ${GREEN}openclaw${NC}              CLI 入口 (透传所有参数)"
+echo -e "  ${GREEN}openclaw-config${NC}       编辑配置"
+echo -e "  ${GREEN}openclaw-status${NC}       服务状态"
+echo -e "  ${GREEN}openclaw-logs${NC}         实时日志"
+echo -e "  ${GREEN}openclaw-restart${NC}      重启服务"
+echo -e "  ${GREEN}openclaw-update${NC}       更新版本"
+echo -e "  ${GREEN}openclaw-doctor${NC}       运行诊断"
+echo -e "  ${GREEN}openclaw-shell${NC}        进入 VM"
+echo ""
+echo "沙箱容器 (由 Gateway 按需创建):"
+echo "  - openclaw-sandbox-common   代码执行 (无网络)"
+echo "  - openclaw-sandbox-browser  浏览器自动化"
 echo ""
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
