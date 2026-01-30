@@ -1,4 +1,4 @@
-# Architecture
+# 系统架构
 
 ## AI 在哪里运行？
 
@@ -33,7 +33,7 @@
 
 **沙箱是 AI 的"手"**——AI 在云端思考决策，通过 Gateway 指挥沙箱执行具体操作。
 
-## System Overview (本地安装版)
+## 系统概览
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -72,7 +72,7 @@
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Why This Architecture?
+## 为什么选择这个架构？
 
 **官方推荐**: OpenClaw 设计为 Gateway 运行在宿主机，通过 Docker CLI 管理沙箱容器。
 
@@ -85,44 +85,44 @@
 | 恶意代码 | 访问 Mac 文件 | 只访问 VM |
 | 最坏情况 | 重装系统 | 删除 VM |
 
-## Deployment Flow
+## 部署流程
 
 ```
-Step 1: Check OrbStack
-    │   Verify orb command exists on Mac
+步骤 1: 检查 OrbStack
+    │   确认 Mac 上有 orb 命令
     ▼
-Step 2: Create Ubuntu VM
+步骤 2: 创建 Ubuntu VM
     │   orb create ubuntu openclaw-vm
     ▼
-Step 3: Install Docker
+步骤 3: 安装 Docker
     │   curl -fsSL https://get.docker.com | sh
     │   (仅供沙箱容器使用)
     ▼
-Step 4: Install Node.js
+步骤 4: 安装 Node.js
     │   Node.js 20.x LTS + build-essential
     ▼
-Step 5: Clone & Build OpenClaw
+步骤 5: 克隆并构建 OpenClaw
     │   git clone + npm install + npm run build
     ▼
-Step 6: Build Sandbox Images
+步骤 6: 构建沙箱镜像
     │   ├── openclaw-sandbox:bookworm-slim
     │   ├── openclaw-sandbox-browser:bookworm-slim
     │   └── openclaw-sandbox-common:bookworm-slim
     ▼
-Step 7: Run Setup Wizard
-    │   ./openclaw setup (interactive)
-    │   - Configure AI provider API keys
-    │   - Configure chat channels
+步骤 7: 运行配置向导
+    │   ./openclaw setup (交互式)
+    │   - 配置 AI 提供商 API Key
+    │   - 配置聊天频道
     ▼
-Step 8: Configure systemd + Commands
-        - Create openclaw.service (auto-start)
-        - Create ~/bin/openclaw-* commands on Mac
-        - Merge sandbox config
+步骤 8: 配置 systemd 和命令
+        - 创建 openclaw.service (自动启动)
+        - 在 Mac 上创建 ~/bin/openclaw-* 命令
+        - 合并沙箱配置
 ```
 
-## Files Created
+## 创建的文件
 
-### In VM (~/)
+### VM 内 (~/)
 
 ```
 ~/openclaw/                    # Git repo (源码)
@@ -161,7 +161,7 @@ Step 8: Configure systemd + Commands
 导致 `hostname conflict` 警告循环。通过环境变量禁用 Bonjour 可解决此问题。
 详见 [troubleshooting.md](troubleshooting.md#1-bonjour-hostname-conflict-警告)。
 
-### On Mac (~/bin/)
+### Mac 端 (~/bin/)
 
 ```
 ~/bin/
@@ -177,7 +177,7 @@ Step 8: Configure systemd + Commands
   └── openclaw-update        # 更新版本
 ```
 
-## Gateway ↔ Sandbox Communication
+## Gateway 与沙箱的通信
 
 ```
 Gateway (VM 进程)

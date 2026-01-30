@@ -1,154 +1,145 @@
 # OpenClaw OrbStack
 
-在 Mac 上通过 OrbStack 一键部署 OpenClaw 聊天机器人平台。
+One-click OpenClaw chatbot deployment on macOS via OrbStack VM.
 
-## 架构
+**[中文文档](docs/README.zh-CN.md)**
+
+## Architecture
 
 ```
-☁️  云端 AI (Anthropic/OpenAI/Google)  ← AI 大脑在这里
-     ↑ API 调用
+☁️  Cloud AI (Anthropic/OpenAI/Google)  ← AI brain runs HERE
+     ↑ API calls
      │
 Mac ─┼─────────────────────────────────────────────────
      │
 └── OrbStack
     └── Ubuntu VM (openclaw-vm)
         │
-        ├── Gateway 进程 (协调器，不在 Docker 里)
-        │   - 接收聊天消息
-        │   - 调用云端 AI
-        │   - 分发工具执行到沙箱
+        ├── Gateway process (orchestrator, NOT in Docker)
+        │   - Receives chat messages
+        │   - Calls cloud AI APIs
+        │   - Dispatches tool execution to sandboxes
         │
-        └── Docker (两个沙箱容器)
-            ├── sandbox-common (代码执行)   ← sandbox.docker 配置
-            └── sandbox-browser (浏览器)    ← sandbox.browser 配置
+        └── Docker (two sandbox containers)
+            ├── sandbox-common (code execution)  ← sandbox.docker config
+            └── sandbox-browser (browser)        ← sandbox.browser config
 ```
 
-**重要概念**:
-- ☁️ AI 大脑运行在**云端** (Anthropic/OpenAI/Google 服务器)
-- 🔧 沙箱是 AI 的"手"——只执行工具，不运行 AI
-- 📦 系统只有**两个**沙箱：代码执行 + 浏览器
+**Key Concepts**:
+- ☁️ AI brain runs in the **cloud** (Anthropic/OpenAI/Google servers)
+- 🔧 Sandboxes are AI's "hands" — they only execute tools, not run AI
+- 📦 Only **TWO** sandboxes: code execution + browser
 
-**优势**:
-- ✅ 符合 OpenClaw 官方推荐架构
-- ✅ Gateway 能正常管理沙箱容器
-- ✅ VM 隔离层保护 Mac 安全
+**Benefits**:
+- ✅ Follows OpenClaw's official recommended architecture
+- ✅ Gateway can properly manage sandbox containers
+- ✅ VM isolation layer protects your Mac
 
-## 前置条件
+## Prerequisites
 
 - macOS 12.3+
-- [OrbStack](https://orbstack.dev) 已安装
+- [OrbStack](https://orbstack.dev) installed
 
-## 安装
+## Installation
 
 ```bash
 bash openclaw-orbstack-setup.sh
 ```
 
-脚本会自动完成：创建 VM → 安装 Docker/Node.js → 构建 OpenClaw → 配置向导 → 启动服务
+The script automatically: Creates VM → Installs Docker/Node.js → Builds OpenClaw → Runs setup wizard → Starts service
 
-## 访问
+## Access
 
-Web 控制台: `http://openclaw-vm.orb.local:18789`
+Web Console: `http://openclaw-vm.orb.local:18789`
 
-## 快速开始
+## Quick Start
 
 ```bash
-# 添加 ~/bin 到 PATH
+# Add ~/bin to PATH
 echo 'export PATH="$HOME/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
 
-# 查看服务状态
+# Check service status
 openclaw-status
 
-# 查看日志
+# View logs
 openclaw-logs
 
-# Telegram Bot 配对
-openclaw-telegram add <bot_token>      # 添加 Bot
-openclaw-telegram approve <code>       # 回执验证码
+# Telegram Bot pairing
+openclaw-telegram add <bot_token>      # Add Bot
+openclaw-telegram approve <code>       # Approve with code
 
-# WhatsApp 登录
+# WhatsApp login
 openclaw-whatsapp
 
-# 编辑配置
+# Edit config
 openclaw-config edit
 
-# 使用官方 CLI (150+ 命令)
+# Use official CLI (150+ commands)
 openclaw --help
 openclaw status
 openclaw channels list
 openclaw doctor
 ```
 
-## Mac 端命令
+## Mac Commands
 
-| 命令 | 功能 |
-|------|------|
-| `openclaw` | CLI 透传 (所有官方命令) |
-| `openclaw-telegram` | Telegram 管理 (add/approve) |
-| `openclaw-whatsapp` | WhatsApp 登录 |
-| `openclaw-config` | 配置管理 |
-| `openclaw-status` | 服务状态 |
-| `openclaw-logs` | 实时日志 |
-| `openclaw-restart` | 重启服务 |
-| `openclaw-stop/start` | 停止/启动服务 |
-| `openclaw-shell` | 进入 VM |
-| `openclaw-update` | 更新版本 |
+| Command | Function |
+|---------|----------|
+| `openclaw` | CLI passthrough (all official commands) |
+| `openclaw-telegram` | Telegram management (add/approve) |
+| `openclaw-whatsapp` | WhatsApp login |
+| `openclaw-config` | Config management |
+| `openclaw-status` | Service status |
+| `openclaw-logs` | Live logs |
+| `openclaw-restart` | Restart service |
+| `openclaw-stop/start` | Stop/start service |
+| `openclaw-shell` | Enter VM terminal |
+| `openclaw-update` | Update version |
 
-完整命令参考见 [docs/commands.md](docs/commands.md)
+Full command reference: [docs/commands.md](docs/commands.md)
 
-## 配置
+## Configuration
 
-配置文件: `~/.openclaw/openclaw.json` (VM 内)
-
-```bash
-openclaw-config edit     # 编辑
-openclaw-config show     # 查看
-openclaw-config backup   # 备份
-```
-
-详细配置说明见 [docs/configuration-guide.md](docs/configuration-guide.md)
-
-## 故障排查
+Config file: `~/.openclaw/openclaw.json` (inside VM)
 
 ```bash
-openclaw-status        # 服务状态
-openclaw-logs          # 查看日志
-openclaw doctor        # 运行诊断
-openclaw-shell         # 进入 VM 排查
+openclaw-config edit     # Edit
+openclaw-config show     # View
+openclaw-config backup   # Backup
 ```
 
-详细故障排查指南见 [docs/troubleshooting.md](docs/troubleshooting.md)
+Detailed configuration guide: [docs/configuration-guide.md](docs/configuration-guide.md)
 
-### 常见问题速查
-
-| 问题 | 解决方案 |
-|------|----------|
-| Bonjour hostname conflict 警告 | 重新运行部署脚本或手动添加环境变量 |
-| Port 18789 already in use | `sudo pkill -9 openclaw && sudo systemctl start openclaw` |
-| Memory 目录错误 | `mkdir -p ~/.openclaw/memory` |
-
-### Memory 目录问题
-
-如果遇到 `EISDIR: illegal operation on a directory` 错误，手动创建 memory 索引目录：
+## Troubleshooting
 
 ```bash
-openclaw-shell
-mkdir -p ~/.openclaw/memory
-chmod 755 ~/.openclaw/memory
-exit
-openclaw-restart
+openclaw-status        # Service status
+openclaw-logs          # View logs
+openclaw doctor        # Run diagnostics
+openclaw-shell         # Enter VM for debugging
 ```
 
-## 文档
+Full troubleshooting guide: [docs/troubleshooting.md](docs/troubleshooting.md)
 
-| 文档 | 内容 |
-|------|------|
-| [docs/commands.md](docs/commands.md) | CLI 命令完整参考 |
-| [docs/architecture.md](docs/architecture.md) | 架构说明 |
-| [docs/configuration-guide.md](docs/configuration-guide.md) | 配置指南 |
-| [docs/troubleshooting.md](docs/troubleshooting.md) | 故障排查指南 |
-| [docs/sandbox.md](docs/sandbox.md) | 沙箱安全 |
-| [docs/voice-tts.md](docs/voice-tts.md) | 语音功能 |
+### Common Issues
+
+| Issue | Solution |
+|-------|----------|
+| Bonjour hostname conflict | Re-run setup script or manually add env var |
+| Port 18789 in use | `sudo pkill -9 openclaw && sudo systemctl start openclaw` |
+| Memory directory error | `mkdir -p ~/.openclaw/memory` |
+
+## Documentation
+
+| Document | Content |
+|----------|---------|
+| [docs/README.zh-CN.md](docs/README.zh-CN.md) | Chinese documentation |
+| [docs/commands.md](docs/commands.md) | CLI command reference |
+| [docs/architecture.md](docs/architecture.md) | Architecture details |
+| [docs/configuration-guide.md](docs/configuration-guide.md) | Configuration guide |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | Troubleshooting guide |
+| [docs/sandbox.md](docs/sandbox.md) | Sandbox security |
+| [docs/voice-tts.md](docs/voice-tts.md) | Voice features |
 
 ## License
 

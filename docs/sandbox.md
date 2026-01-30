@@ -1,4 +1,4 @@
-# Sandbox System
+# 沙箱系统
 
 ## AI 在哪里运行？(重要概念)
 
@@ -44,17 +44,17 @@
 
 **注意**: `sandbox.docker` 这个名字容易误解，它不是"Docker 配置"，而是"代码执行沙箱的 Docker 容器配置"。
 
-## Architecture
+## 架构图
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  Sandbox System                                                              │
+│  沙箱系统                                                                    │
 │                                                                              │
 │  ┌─────────────────────────────────────────────────────────────────────────┐│
-│  │  Gateway Process (VM Host)                                              ││
-│  │  - Receives user messages                                               ││
-│  │  - Manages AI model calls (to cloud providers)                          ││
-│  │  - Dispatches tool execution to sandboxes                               ││
+│  │  Gateway 进程 (VM 宿主机)                                                ││
+│  │  - 接收用户消息                                                          ││
+│  │  - 管理 AI 模型调用 (云端提供商)                                          ││
+│  │  - 分发工具执行到沙箱                                                    ││
 │  └───────────────────────────────────┬─────────────────────────────────────┘│
 │                                      │                                       │
 │                    ┌─────────────────┴─────────────────┐                    │
@@ -62,46 +62,46 @@
 │  ┌─────────────────────────────────┐  ┌─────────────────────────────────┐  │
 │  │  代码执行沙箱                    │  │  浏览器沙箱                      │  │
 │  │  (sandbox.docker 配置)          │  │  (sandbox.browser 配置)         │  │
-│  │  Container: sandbox-common      │  │  Container: sandbox-browser     │  │
+│  │  容器: sandbox-common           │  │  容器: sandbox-browser          │  │
 │  │                                 │  │                                 │  │
-│  │  Tools:                         │  │  Tools:                         │  │
-│  │  - exec (run commands)          │  │  - browser (web automation)     │  │
-│  │  - read/write/edit (files)      │  │                                 │  │
-│  │  - process (manage processes)   │  │  Features:                      │  │
+│  │  工具:                          │  │  工具:                          │  │
+│  │  - exec (运行命令)              │  │  - browser (网页自动化)         │  │
+│  │  - read/write/edit (文件)       │  │                                 │  │
+│  │  - process (进程管理)           │  │  特性:                          │  │
 │  │                                 │  │  - Chromium + CDP               │  │
-│  │  Pre-installed:                 │  │  - Xvfb (headful mode)          │  │
-│  │  - Node.js, npm                 │  │  - noVNC (optional)             │  │
+│  │  预装软件:                       │  │  - Xvfb (有头模式)              │  │
+│  │  - Node.js, npm                 │  │  - noVNC (可选)                 │  │
 │  │  - Python 3                     │  │                                 │  │
-│  │  - Go, Rust                     │  │  Startup:                       │  │
+│  │  - Go, Rust                     │  │  启动方式:                       │  │
 │  │  - git, curl, jq                │  │  - autoStart: true (自动启动)   │  │
 │  │                                 │  │                                 │  │
-│  │  Startup:                       │  │  Security:                      │  │
+│  │  启动方式:                       │  │  安全:                          │  │
 │  │  - 按需启动 (无 autoStart)       │  │  - network: bridge              │  │
-│  │                                 │  │  - Separate container           │  │
-│  │  Security:                      │  │                                 │  │
+│  │                                 │  │  - 独立容器                      │  │
+│  │  安全:                          │  │                                 │  │
 │  │  - network: bridge              │  │                                 │  │
 │  │  - readOnlyRoot: true           │  │                                 │  │
 │  │  - user: 501:501                │  │                                 │  │
 │  │  - capDrop: ALL                 │  │                                 │  │
 │  └─────────────────────────────────┘  └─────────────────────────────────┘  │
 │                                                                              │
-│  Sandbox Images Built:                                                       │
-│  1. openclaw-sandbox:bookworm-slim        - Minimal base image              │
-│  2. openclaw-sandbox-common:bookworm-slim - With dev tools (DEFAULT)        │
-│  3. openclaw-sandbox-browser:bookworm-slim - With Chromium browser          │
+│  构建的沙箱镜像:                                                              │
+│  1. openclaw-sandbox:bookworm-slim        - 最小基础镜像                     │
+│  2. openclaw-sandbox-common:bookworm-slim - 带开发工具 (默认)                │
+│  3. openclaw-sandbox-browser:bookworm-slim - 带 Chromium 浏览器              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Why Docker Sandbox? (Important)
+## 为什么需要 Docker 沙箱？(重要)
 
-**OrbStack VM does NOT provide isolation from Mac!**
+**OrbStack VM 并不能隔离 Mac 文件系统！**
 
-| Component | Mac Filesystem Access | Network Access |
-|-----------|----------------------|----------------|
-| OrbStack VM | ✅ Full access via `/mnt/mac` | ✅ Full |
-| Docker Container | ❌ Only mounted `/workspace` | ✅ Bridge network |
+| 组件 | Mac 文件访问 | 网络访问 |
+|------|-------------|----------|
+| OrbStack VM | ✅ 通过 `/mnt/mac` 完全访问 | ✅ 完全访问 |
+| Docker 容器 | ❌ 只能看到挂载的 `/workspace` | ✅ Bridge 网络 |
 
-Docker containers are the **only isolation layer** protecting your Mac files:
+Docker 容器是保护 Mac 文件的**唯一隔离层**:
 
 ```
 Mac 文件系统 (/Users/*, Documents, Photos...)
@@ -113,7 +113,7 @@ Docker 容器看不到！只能看到 /workspace
 
 **不要设置 `sandbox.mode: "off"`** — 那样 AI 可以通过 `/mnt/mac` 访问你整个 Mac！
 
-## Default Configuration
+## 默认配置
 
 ```json
 {
@@ -168,25 +168,25 @@ Docker 容器看不到！只能看到 /workspace
 }
 ```
 
-## Security Model
+## 安全模型
 
-| Setting | Security Benefit | Trade-off |
-|---------|-----------------|-----------|
-| `network: bridge` | Browser can access internet | Code execution has network (acceptable - Mac files still protected) |
-| `readOnlyRoot: true` | Can't modify system files | Can't install software |
-| `user: 501:501` | Match macOS user permissions | - |
-| `capDrop: ALL` | No special Linux capabilities | Limited system calls |
-| `tmpfs: /tmp:exec` | Playwright can execute in /tmp | - |
-| `workspaceAccess: rw` | - | Can read/write workspace files only |
-| Docker isolation | **Mac filesystem protected** | Only sees mounted workspace |
+| 设置 | 安全收益 | 代价 |
+|------|---------|------|
+| `network: bridge` | 浏览器可访问网络 | 代码执行也有网络 (可接受 - Mac 文件仍受保护) |
+| `readOnlyRoot: true` | 无法修改系统文件 | 无法安装软件 |
+| `user: 501:501` | 匹配 macOS 用户权限 | - |
+| `capDrop: ALL` | 无特殊 Linux 权限 | 系统调用受限 |
+| `tmpfs: /tmp:exec` | Playwright 可在 /tmp 执行 | - |
+| `workspaceAccess: rw` | - | 只能读写 workspace 文件 |
+| Docker 隔离 | **Mac 文件系统受保护** | 只能看到挂载的 workspace |
 
-### Network Configuration Options
+### 网络配置选项
 
-| Value | Behavior | Use Case |
-|-------|----------|----------|
-| `bridge` | Full network access | **Default** - Browser automation works |
-| `none` | No network | Maximum isolation (browser won't work) |
-| `host` | Share host network | Not recommended |
+| 值 | 行为 | 使用场景 |
+|----|------|----------|
+| `bridge` | 完全网络访问 | **默认** - 浏览器自动化可用 |
+| `none` | 无网络 | 最大隔离 (浏览器无法工作) |
+| `host` | 共享宿主网络 | 不推荐 |
 
 **为什么默认 `bridge` 而不是 `none`？**
 
@@ -194,12 +194,12 @@ Docker 容器看不到！只能看到 /workspace
 - 真正的安全边界是**文件系统隔离**，不是网络
 - Docker 容器看不到 Mac 文件，即使有网络访问
 
-### Sandbox Mode Options
+### 沙箱模式选项
 
-| Mode | Behavior | Browser Works? | Recommendation |
-|------|----------|----------------|----------------|
+| 模式 | 行为 | 浏览器可用？ | 推荐 |
+|------|------|-------------|------|
 | `off` | 不使用沙箱，直接在 VM 执行 | ❌ (VM 没有 GUI 浏览器) | **危险** - AI 可访问 `/mnt/mac` |
-| `non-main` | 只有非主会话使用沙箱 | ⚠️ 只有 non-main sessions | 主会话无法用 sandbox browser |
+| `non-main` | 只有非主会话使用沙箱 | ⚠️ 只有非主会话 | 主会话无法用浏览器沙箱 |
 | `all` | 所有会话都使用沙箱 | ✅ 全部可用 | **推荐** |
 
 **为什么默认 `all` 而不是 `non-main`？**
@@ -208,10 +208,10 @@ Docker 容器看不到！只能看到 /workspace
 - VM 没有安装 GUI 浏览器，所以 main session 无法使用浏览器功能
 - `all` 模式让所有会话都在 Docker 沙箱里运行，可以使用 sandbox-browser
 
-### Tool Groups (Sandbox Permissions)
+### 工具组 (沙箱权限)
 
-| Group | Tools Included |
-|-------|---------------|
+| 组 | 包含的工具 |
+|----|-----------|
 | `group:runtime` | exec, bash, process |
 | `group:fs` | read, write, edit, apply_patch |
 | `group:sessions` | sessions_list, sessions_history, sessions_send, sessions_spawn, session_status |
@@ -219,24 +219,24 @@ Docker 容器看不到！只能看到 /workspace
 
 默认配置允许 `group:ui`（包含 browser），但 deny 了 `canvas`。
 
-## Sandbox Images
+## 沙箱镜像
 
-| Image | Contents | Use Case |
-|-------|----------|----------|
-| `openclaw-sandbox:bookworm-slim` | Minimal Debian | Maximum security, basic tasks |
-| `openclaw-sandbox-common:bookworm-slim` | + Node, Python, Go, Rust, git | **Default** - Development tasks |
-| `openclaw-sandbox-browser:bookworm-slim` | + Chromium, CDP, Xvfb | Web automation (separate container) |
+| 镜像 | 内容 | 使用场景 |
+|------|------|----------|
+| `openclaw-sandbox:bookworm-slim` | 最小 Debian | 最高安全性，基础任务 |
+| `openclaw-sandbox-common:bookworm-slim` | + Node, Python, Go, Rust, git | **默认** - 开发任务 |
+| `openclaw-sandbox-browser:bookworm-slim` | + Chromium, CDP, Xvfb | 网页自动化 (独立容器) |
 
-## Browser Sandbox Configuration
+## 浏览器沙箱配置
 
-| Setting | Default | Description |
-|---------|---------|-------------|
+| 设置 | 默认值 | 说明 |
+|------|--------|------|
 | `enabled` | `true` | 启用浏览器沙箱 |
 | `autoStart` | `true` | 自动启动浏览器容器 |
 | `autoStartTimeoutMs` | `30000` | 启动超时时间 (毫秒) |
 | `allowHostControl` | `true` | 允许 `target="host"` 访问宿主浏览器 |
 
-## Troubleshooting
+## 故障排查
 
 ### Browser sandbox 启动失败
 
@@ -259,7 +259,7 @@ docker rm -f $(docker ps -aq --filter "name=openclaw-sbx") 2>/dev/null || true
 openclaw-restart
 ```
 
-## Environment Variables (重要)
+## 环境变量 (重要)
 
 **沙箱容器不会继承 Gateway 的环境变量！** 如果需要在沙箱内使用 API Key，必须在 `sandbox.docker.env` 中显式配置。
 
