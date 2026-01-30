@@ -35,6 +35,13 @@ VM_NAME="openclaw-vm"
 VM_DISTRO="ubuntu"
 TOTAL_STEPS=8
 
+# --- 可选环境变量 ---
+# OPENCLAW_EXTRA_MOUNTS       - 额外挂载目录 (逗号分隔, 如: $HOME/.ssh:/home/node/.ssh:ro)
+# OPENCLAW_DOCKER_APT_PACKAGES - 额外安装的 apt 包 (空格分隔, 如: ffmpeg imagemagick)
+# OPENCLAW_SETUP_COMMAND      - 沙箱启动时执行的命令
+# OPENCLAW_DNS                - 自定义 DNS 服务器 (逗号分隔, 如: 1.1.1.1,8.8.8.8)
+# OPENCLAW_EXTRA_HOSTS        - 额外 hosts 映射 (逗号分隔, 如: myhost:192.168.1.1)
+
 # --- 输出函数 ---
 step()    { echo -e "\n${CYAN}[$1/$TOTAL_STEPS] $2${NC}"; }
 ok()      { echo -e "${GREEN}  ✓ $1${NC}"; }
@@ -185,9 +192,8 @@ step 6 "准备沙箱安全配置"
 # 使用 OPENCLAW_HOME_VOLUME 让容器自由管理 /home/node（避免 bind mount 的权限和 rename 问题）
 vm_exec 'mkdir -p ~/openclaw-sandbox-config'
 
-orb -m "$VM_NAME" bash << 'REMOTE_EOF'
-cat > ~/openclaw-sandbox-config/sandbox-config.json << 'EOFCONFIG'
-{
+# 构建动态配置
+SANDBOX_CONFIG='{
   "agents": {
     "defaults": {
       "sandbox": {
@@ -254,9 +260,33 @@ cat > ~/openclaw-sandbox-config/sandbox-config.json << 'EOFCONFIG'
       }
     }
   }
-}
-EOFCONFIG
-REMOTE_EOF
+}'
+
+# 应用可选环境变量配置
+if command -v jq &> /dev/null; then
+    if [ -n "$OPENCLAW_SETUP_COMMAND" ]; then
+        info "添加 setupCommand: $OPENCLAW_SETUP_COMMAND"
+        SANDBOX_CONFIG=$(echo "$SANDBOX_CONFIG" | jq --arg cmd "$OPENCLAW_SETUP_COMMAND" \
+            '.agents.defaults.sandbox.docker.setupCommand = $cmd')
+    fi
+
+    if [ -n "$OPENCLAW_DNS" ]; then
+        info "添加 DNS: $OPENCLAW_DNS"
+        DNS_ARRAY=$(echo "$OPENCLAW_DNS" | tr ',' '\n' | jq -R . | jq -s .)
+        SANDBOX_CONFIG=$(echo "$SANDBOX_CONFIG" | jq --argjson dns "$DNS_ARRAY" \
+            '.agents.defaults.sandbox.docker.dns = $dns')
+    fi
+
+    if [ -n "$OPENCLAW_EXTRA_HOSTS" ]; then
+        info "添加 extraHosts: $OPENCLAW_EXTRA_HOSTS"
+        HOSTS_ARRAY=$(echo "$OPENCLAW_EXTRA_HOSTS" | tr ',' '\n' | jq -R . | jq -s .)
+        SANDBOX_CONFIG=$(echo "$SANDBOX_CONFIG" | jq --argjson hosts "$HOSTS_ARRAY" \
+            '.agents.defaults.sandbox.docker.extraHosts = $hosts')
+    fi
+fi
+
+# 写入配置文件
+echo "$SANDBOX_CONFIG" | vm_exec 'cat > ~/openclaw-sandbox-config/sandbox-config.json'
 
 info "沙箱配置已准备: ~/openclaw-sandbox-config/sandbox-config.json"
 info ""
@@ -294,7 +324,18 @@ read -r
 vm_exec "mkdir -p ~/.openclaw ~/.openclaw/credentials ~/.openclaw/workspace"
 vm_exec "sudo chown -R 1000:1000 ~/.openclaw ~/.openclaw/workspace"
 
-vm_exec "cd ~/openclaw && export OPENCLAW_HOME_VOLUME=openclaw_home && sg docker -c './docker-setup.sh'"
+# 构建环境变量
+DOCKER_ENV="OPENCLAW_HOME_VOLUME=openclaw_home"
+if [ -n "$OPENCLAW_EXTRA_MOUNTS" ]; then
+    info "配置额外挂载: $OPENCLAW_EXTRA_MOUNTS"
+    DOCKER_ENV="$DOCKER_ENV OPENCLAW_EXTRA_MOUNTS='$OPENCLAW_EXTRA_MOUNTS'"
+fi
+if [ -n "$OPENCLAW_DOCKER_APT_PACKAGES" ]; then
+    info "配置额外 apt 包: $OPENCLAW_DOCKER_APT_PACKAGES"
+    DOCKER_ENV="$DOCKER_ENV OPENCLAW_DOCKER_APT_PACKAGES='$OPENCLAW_DOCKER_APT_PACKAGES'"
+fi
+
+vm_exec "cd ~/openclaw && export $DOCKER_ENV && sg docker -c './docker-setup.sh'"
 ok "配置向导完成"
 
 # Fix EBUSY: docker-setup.sh uses -f flag which ignores override files
@@ -405,7 +446,53 @@ EOF
 
 cat > ~/bin/openclaw-doctor << 'EOF'
 #!/bin/bash
-orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c 'docker compose run --rm openclaw-cli doctor'"
+# 运行诊断
+orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c '"'"'docker compose run --rm openclaw-cli doctor'"'"'"
+EOF
+
+cat > ~/bin/openclaw-health << 'EOF'
+#!/bin/bash
+# 健康检查
+TOKEN=$(orb -m openclaw-vm bash -c "cat ~/openclaw/.env 2>/dev/null | grep OPENCLAW_GATEWAY_TOKEN | cut -d= -f2")
+if [ -n "$TOKEN" ]; then
+    orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c '"'"'docker compose exec openclaw-gateway node dist/index.js health --token '"'"'$TOKEN'"'"''"'"'"
+else
+    echo "未找到 Gateway Token，请检查 .env 文件"
+fi
+EOF
+
+cat > ~/bin/openclaw-whatsapp << 'EOF'
+#!/bin/bash
+# WhatsApp 登录 (扫码)
+orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c '"'"'docker compose run --rm openclaw-cli channels login'"'"'"
+EOF
+
+cat > ~/bin/openclaw-telegram << 'EOF'
+#!/bin/bash
+# 添加 Telegram Bot
+if [ -z "$1" ]; then
+    echo "用法: openclaw-telegram <bot_token>"
+    echo "从 @BotFather 获取 token"
+    exit 1
+fi
+orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c '"'"'docker compose run --rm openclaw-cli channels add --channel telegram --token "$1"'"'"'"
+EOF
+
+cat > ~/bin/openclaw-discord << 'EOF'
+#!/bin/bash
+# 添加 Discord Bot
+if [ -z "$1" ]; then
+    echo "用法: openclaw-discord <bot_token>"
+    exit 1
+fi
+orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c '"'"'docker compose run --rm openclaw-cli channels add --channel discord --token "$1"'"'"'"
+EOF
+
+cat > ~/bin/openclaw-channels << 'EOF'
+#!/bin/bash
+# 列出所有频道
+orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c '"'"'docker compose run --rm openclaw-cli channels list'"'"'" 2>/dev/null || \
+orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c '"'"'docker compose run --rm openclaw-cli channels'"'"'"
 EOF
 
 chmod +x ~/bin/openclaw-*
@@ -429,6 +516,11 @@ echo "  openclaw-stop      停止服务"
 echo "  openclaw-start     启动服务"
 echo "  openclaw-shell     进入 VM 终端"
 echo "  openclaw-doctor    运行诊断"
+echo "  openclaw-health    健康检查"
+echo "  openclaw-whatsapp  WhatsApp 登录 (扫码)"
+echo "  openclaw-telegram  添加 Telegram Bot"
+echo "  openclaw-discord   添加 Discord Bot"
+echo "  openclaw-channels  列出所有频道"
 echo ""
 echo "加入 PATH (添加到 ~/.zshrc):"
 echo '  export PATH="$HOME/bin:$PATH"'

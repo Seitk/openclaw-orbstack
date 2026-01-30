@@ -62,6 +62,11 @@ openclaw-stop      # Stop all containers
 openclaw-start     # Start containers
 openclaw-shell     # SSH into VM
 openclaw-doctor    # Diagnostics
+openclaw-health    # Health check
+openclaw-channels  # List channels
+openclaw-whatsapp  # WhatsApp login (QR)
+openclaw-telegram  # Add Telegram bot
+openclaw-discord   # Add Discord bot
 
 # Direct OrbStack commands
 orb list                          # List VMs
