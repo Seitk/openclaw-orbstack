@@ -105,9 +105,9 @@
     │   git clone + npm install + npm run build
     ▼
 步骤 6: 构建沙箱镜像
-    │   ├── openclaw-sandbox:bookworm-slim
-    │   ├── openclaw-sandbox-browser:bookworm-slim
-    │   └── openclaw-sandbox-common:bookworm-slim
+    │   ├── openclaw-sandbox:bookworm-slim        (基础镜像，构建依赖)
+    │   ├── openclaw-sandbox-common:bookworm-slim  (基于基础镜像 + 开发工具)
+    │   └── openclaw-sandbox-browser:bookworm-slim (独立构建，Chromium)
     ▼
 步骤 7: 运行配置向导
     │   ./openclaw setup (交互式)
@@ -174,7 +174,8 @@
   ├── openclaw-start         # systemctl start
   ├── openclaw-shell         # 进入 VM
   ├── openclaw-doctor        # 运行诊断
-  └── openclaw-update        # 更新版本
+  ├── openclaw-update        # 更新版本 (仅应用，--sandbox 重建镜像)
+  └── openclaw-sandbox-rebuild # 重建沙箱镜像
 ```
 
 ## Gateway 与沙箱的通信

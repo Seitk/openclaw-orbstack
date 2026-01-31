@@ -37,7 +37,7 @@ OpenClawOrb/
 ├── templates/
 │   └── openclaw.json.example     # Config template (JSON5, 899 lines)
 ├── docs/
-│   ├── commands.md               # CLI reference (11 Mac + 150 official)
+│   ├── commands.md               # CLI reference (12 Mac + 150 official)
 │   ├── architecture.md           # System diagrams
 │   ├── configuration-guide.md    # Config guide (Chinese)
 │   ├── sandbox.md                # Sandbox security model
@@ -70,7 +70,7 @@ OpenClawOrb/
 | Gateway command | `node dist/entry.js gateway --port 18789` |
 | Node.js version | 22.x LTS |
 
-## Mac Commands (11)
+## Mac Commands (12)
 
 | Command | Function |
 |---------|----------|
@@ -83,7 +83,8 @@ OpenClawOrb/
 | `openclaw-restart` | Restart service |
 | `openclaw-stop/start` | Stop/start service |
 | `openclaw-shell` | Enter VM terminal |
-| `openclaw-update` | Update version |
+| `openclaw-update` | Update app (--sandbox to rebuild images) |
+| `openclaw-sandbox-rebuild` | Rebuild sandbox Docker images |
 
 ## Conventions
 

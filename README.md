@@ -94,7 +94,8 @@ openclaw doctor
 | `openclaw-restart` | Restart service |
 | `openclaw-stop/start` | Stop/start service |
 | `openclaw-shell` | Enter VM terminal |
-| `openclaw-update` | Update version |
+| `openclaw-update` | Update app (`--sandbox` to rebuild images) |
+| `openclaw-sandbox-rebuild` | Rebuild sandbox Docker images |
 
 Full command reference: [docs/commands.md](docs/commands.md)
 
@@ -129,6 +130,7 @@ Full troubleshooting guide: [docs/troubleshooting.md](docs/troubleshooting.md)
 | Port 18789 in use | `sudo pkill -9 openclaw && sudo systemctl start openclaw` |
 | Memory directory error | `mkdir -p ~/.openclaw/memory` |
 | Memory search not working | Add OpenAI/Google key to agent auth-profiles.json |
+| Mac commands outdated | `cd openclaw-orbstack && git pull && bash scripts/refresh-mac-commands.sh` |
 
 ## Documentation
 

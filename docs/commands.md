@@ -4,12 +4,12 @@
 
 在 Mac 上有两类命令可用：
 
-1. **OrbStack 管理命令** (`openclaw-*`) - 我们为 OrbStack 架构添加的 11 个命令
+1. **OrbStack 管理命令** (`openclaw-*`) - 我们为 OrbStack 架构添加的 12 个命令
 2. **官方 CLI 命令** (`openclaw <command>`) - 透传到 VM 的 150+ 官方命令
 
 ---
 
-## OrbStack 管理命令 (11 个)
+## OrbStack 管理命令 (12 个)
 
 这些命令在 `~/bin/` 目录下，用于管理 OrbStack VM 和服务：
 
@@ -60,18 +60,31 @@ openclaw-whatsapp                      # 扫码登录
 | `openclaw-stop` | 停止服务 |
 | `openclaw-start` | 启动服务 |
 | `openclaw-shell` | 进入 VM 终端 |
-| `openclaw-update` | 更新到最新版本 |
+| `openclaw-update` | 更新版本 (仅应用，`--sandbox` 重建镜像) |
+| `openclaw-sandbox-rebuild` | 重建沙箱 Docker 镜像 |
 
 ### 更新命令详情
 
-`openclaw-update` 执行以下步骤：
+`openclaw-update` 默认只更新应用（不重建沙箱镜像）：
 1. 停止 Gateway 服务
 2. 拉取最新代码 (`git pull`)
 3. 安装依赖 (`npm install`)
 4. 编译项目 (`npm run build`)
-5. 重新安装 CLI (`npm install -g .`)
-6. 更新沙箱镜像
+5. 构建 Control UI (`pnpm ui:build`)
+6. 重新安装 CLI (`npm install -g .`)
 7. 启动服务
+
+使用 `--sandbox` 标志同时重建沙箱镜像：
+```bash
+openclaw-update --sandbox
+```
+
+或单独重建沙箱镜像：
+```bash
+openclaw-sandbox-rebuild
+```
+
+> 沙箱镜像很少需要更新，只在上游 Dockerfile 变化时需要。已运行的容器仍使用旧镜像，需重启后生效。
 
 ---
 
