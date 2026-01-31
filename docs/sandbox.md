@@ -33,9 +33,9 @@
 
 **沙箱是 AI 的"手"**——当 AI 说"我要执行这段代码"，Gateway 把请求发到代码沙箱执行，然后把结果返回给云端 AI。
 
-## 两个沙箱 (不是三个！)
+## 两个沙箱容器，三个 Docker 镜像
 
-系统只有**两个**沙箱容器，配置名称可能有歧义：
+运行时只有**两个**沙箱容器，但构建了**三个** Docker 镜像（基础镜像是 common 的构建依赖）：
 
 | 配置节 | 容器名 | 用途 |
 |--------|--------|------|
@@ -85,10 +85,10 @@
 │  │  - capDrop: ALL                 │  │                                 │  │
 │  └─────────────────────────────────┘  └─────────────────────────────────┘  │
 │                                                                              │
-│  构建的沙箱镜像:                                                              │
-│  1. openclaw-sandbox:bookworm-slim        - 最小基础镜像                     │
-│  2. openclaw-sandbox-common:bookworm-slim - 带开发工具 (默认)                │
-│  3. openclaw-sandbox-browser:bookworm-slim - 带 Chromium 浏览器              │
+│  构建的沙箱镜像 (3 个镜像，2 个运行时容器):                                    │
+│  1. openclaw-sandbox:bookworm-slim        - 基础镜像 (构建依赖，不直接使用)  │
+│  2. openclaw-sandbox-common:bookworm-slim - 基于 1 + 开发工具 (代码执行)     │
+│  3. openclaw-sandbox-browser:bookworm-slim - 独立构建，带 Chromium (浏览器)   │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -221,11 +221,11 @@ Docker 容器看不到！只能看到 /workspace
 
 ## 沙箱镜像
 
-| 镜像 | 内容 | 使用场景 |
-|------|------|----------|
-| `openclaw-sandbox:bookworm-slim` | 最小 Debian | 最高安全性，基础任务 |
-| `openclaw-sandbox-common:bookworm-slim` | + Node, Python, Go, Rust, git | **默认** - 开发任务 |
-| `openclaw-sandbox-browser:bookworm-slim` | + Chromium, CDP, Xvfb | 网页自动化 (独立容器) |
+| 镜像 | 内容 | 角色 |
+|------|------|------|
+| `openclaw-sandbox:bookworm-slim` | 最小 Debian (bash, curl, git, jq) | **构建依赖** — sandbox-common 的基础层 |
+| `openclaw-sandbox-common:bookworm-slim` | 基于上层 + Node, Python, Go, Rust | **运行时** — 代码执行沙箱 (`sandbox.docker`) |
+| `openclaw-sandbox-browser:bookworm-slim` | 独立构建，Chromium, CDP, Xvfb | **运行时** — 浏览器沙箱 (`sandbox.browser`) |
 
 ## 浏览器沙箱配置
 

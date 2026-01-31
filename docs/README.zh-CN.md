@@ -94,7 +94,8 @@ openclaw doctor
 | `openclaw-restart` | 重启服务 |
 | `openclaw-stop/start` | 停止/启动服务 |
 | `openclaw-shell` | 进入 VM |
-| `openclaw-update` | 更新版本 |
+| `openclaw-update` | 更新版本 (仅应用，`--sandbox` 重建镜像) |
+| `openclaw-sandbox-rebuild` | 重建沙箱镜像 |
 
 完整命令参考见 [commands.md](commands.md)
 
@@ -129,6 +130,7 @@ openclaw-shell         # 进入 VM 排查
 | Port 18789 already in use | `sudo pkill -9 openclaw && sudo systemctl start openclaw` |
 | Memory 目录错误 | `mkdir -p ~/.openclaw/memory` |
 | Memory search 无法使用 | 在 agent auth-profiles.json 中添加 OpenAI/Google key |
+| Mac 端命令过旧 | `cd openclaw-orbstack && git pull && bash scripts/refresh-mac-commands.sh` |
 
 ### Memory 目录问题
 

@@ -185,9 +185,13 @@
       // 重要概念:
       // - AI 大脑运行在云端 (Anthropic/OpenAI/Google)，不在沙箱里
       // - 沙箱是 AI 的"手"——只执行工具，不运行 AI
-      // - 系统有两个沙箱:
+      // - 运行时有两个沙箱容器:
       //   1. sandbox.docker  → 代码执行沙箱 (exec, read, write, edit)
       //   2. sandbox.browser → 浏览器沙箱 (Playwright, Chromium)
+      // - 构建时有三个 Docker 镜像:
+      //   1. openclaw-sandbox:bookworm-slim        → 基础镜像 (构建依赖)
+      //   2. openclaw-sandbox-common:bookworm-slim  → 基于 1 + 开发工具 (代码执行用)
+      //   3. openclaw-sandbox-browser:bookworm-slim → 独立构建 (浏览器用)
       sandbox: {
         // 沙箱模式:
         //   "off"      - 不使用沙箱 (危险：AI 可访问 /mnt/mac)

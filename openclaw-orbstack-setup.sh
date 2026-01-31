@@ -184,13 +184,13 @@ ok "OpenClaw 构建完成 (CLI: openclaw)"
 # ============================================================================
 step 6 "构建沙箱镜像"
 
-info "构建通用沙箱镜像..."
+info "构建基础沙箱镜像 (sandbox-common 的构建依赖)..."
 if vm_exec "cd ~/openclaw && sg docker -c './scripts/sandbox-setup.sh'" 2>/dev/null; then
-    ok "sandbox 镜像构建完成"
+    ok "sandbox 基础镜像构建完成"
 elif vm_exec "cd ~/openclaw && sg docker -c 'docker build -t openclaw-sandbox:bookworm-slim -f Dockerfile.sandbox .'" 2>/dev/null; then
-    ok "sandbox 镜像构建完成 (Dockerfile)"
+    ok "sandbox 基础镜像构建完成 (Dockerfile)"
 else
-    warn "sandbox 镜像构建失败，跳过"
+    warn "sandbox 基础镜像构建失败，sandbox-common 可能也会失败"
 fi
 
 info "构建浏览器沙箱镜像..."
@@ -202,13 +202,11 @@ else
     warn "sandbox-browser 镜像构建失败，跳过"
 fi
 
-info "构建 common 沙箱镜像..."
+info "构建 common 沙箱镜像 (基于基础镜像，加装开发工具)..."
 if vm_exec "cd ~/openclaw && sg docker -c './scripts/sandbox-common-setup.sh'" 2>/dev/null; then
     ok "sandbox-common 镜像构建完成"
-elif vm_exec "cd ~/openclaw && sg docker -c 'docker build -t openclaw-sandbox-common:bookworm-slim -f Dockerfile.sandbox-common .'" 2>/dev/null; then
-    ok "sandbox-common 镜像构建完成 (Dockerfile)"
 else
-    warn "sandbox-common 镜像构建失败，跳过"
+    warn "sandbox-common 镜像构建失败 (需要基础镜像先构建成功)"
 fi
 
 # ============================================================================
@@ -351,6 +349,25 @@ EOF
 cat > ~/bin/openclaw-update << 'EOF'
 #!/bin/bash
 set -e
+
+SANDBOX=false
+for arg in "$@"; do
+    case "$arg" in
+        --sandbox) SANDBOX=true ;;
+        --help|-h)
+            echo "用法: openclaw-update [--sandbox]"
+            echo ""
+            echo "更新 OpenClaw 应用到最新版本。"
+            echo ""
+            echo "选项:"
+            echo "  --sandbox    同时重建沙箱 Docker 镜像"
+            echo ""
+            echo "提示: 单独重建沙箱可用 openclaw-sandbox-rebuild"
+            exit 0
+            ;;
+    esac
+done
+
 echo "🔄 正在更新 OpenClaw..."
 
 echo "  停止服务..."
@@ -371,15 +388,60 @@ orb -m openclaw-vm bash -c "cd ~/openclaw && pnpm ui:build"
 echo "  重新安装 CLI..."
 orb -m openclaw-vm bash -c "cd ~/openclaw && sudo npm install -g ."
 
-echo "  更新沙箱镜像..."
-orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c './scripts/sandbox-setup.sh'" 2>/dev/null || true
-orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c './scripts/sandbox-browser-setup.sh'" 2>/dev/null || true
-orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c './scripts/sandbox-common-setup.sh'" 2>/dev/null || true
+if [ "$SANDBOX" = true ]; then
+    echo "  重建沙箱镜像..."
+    echo "    构建基础镜像..."
+    orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c './scripts/sandbox-setup.sh'" 2>/dev/null || true
+    echo "    构建 common 镜像..."
+    orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c './scripts/sandbox-common-setup.sh'" 2>/dev/null || true
+    echo "    构建浏览器镜像..."
+    orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c './scripts/sandbox-browser-setup.sh'" 2>/dev/null || true
+    echo "  💡 已运行的容器仍使用旧镜像，重启后生效"
+fi
 
 echo "  启动服务..."
 orb -m openclaw-vm bash -c "sudo systemctl start openclaw"
 
 echo "✅ 更新完成！"
+if [ "$SANDBOX" = false ]; then
+    echo "💡 如需重建沙箱镜像: openclaw-update --sandbox"
+fi
+EOF
+
+cat > ~/bin/openclaw-sandbox-rebuild << 'EOF'
+#!/bin/bash
+set -e
+echo "🔨 正在重建沙箱 Docker 镜像..."
+
+# 基础镜像必须先构建（sandbox-common 依赖它）
+echo "  构建基础沙箱镜像..."
+if orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c './scripts/sandbox-setup.sh'" 2>/dev/null; then
+    echo "  ✓ sandbox 基础镜像构建完成"
+elif orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c 'docker build -t openclaw-sandbox:bookworm-slim -f Dockerfile.sandbox .'" 2>/dev/null; then
+    echo "  ✓ sandbox 基础镜像构建完成 (Dockerfile)"
+else
+    echo "  ✗ sandbox 基础镜像构建失败（sandbox-common 可能也会失败）"
+fi
+
+echo "  构建 common 沙箱镜像..."
+if orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c './scripts/sandbox-common-setup.sh'" 2>/dev/null; then
+    echo "  ✓ sandbox-common 镜像构建完成"
+else
+    echo "  ✗ sandbox-common 镜像构建失败"
+fi
+
+echo "  构建浏览器沙箱镜像..."
+if orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c './scripts/sandbox-browser-setup.sh'" 2>/dev/null; then
+    echo "  ✓ sandbox-browser 镜像构建完成"
+elif orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c 'docker build -t openclaw-sandbox-browser:bookworm-slim -f Dockerfile.sandbox-browser .'" 2>/dev/null; then
+    echo "  ✓ sandbox-browser 镜像构建完成 (Dockerfile)"
+else
+    echo "  ✗ sandbox-browser 镜像构建失败"
+fi
+
+echo ""
+echo "✅ 沙箱镜像重建完成！"
+echo "💡 已运行的容器仍使用旧镜像，运行 openclaw-restart 使新镜像生效"
 EOF
 
 cat > ~/bin/openclaw-telegram << 'EOF'
@@ -561,7 +623,8 @@ echo -e "  ${GREEN}openclaw-config${NC}       编辑配置"
 echo -e "  ${GREEN}openclaw-status${NC}       服务状态"
 echo -e "  ${GREEN}openclaw-logs${NC}         实时日志"
 echo -e "  ${GREEN}openclaw-restart${NC}      重启服务"
-echo -e "  ${GREEN}openclaw-update${NC}       更新版本"
+echo -e "  ${GREEN}openclaw-update${NC}       更新版本 (仅应用，--sandbox 重建镜像)"
+echo -e "  ${GREEN}openclaw-sandbox-rebuild${NC} 重建沙箱镜像"
 echo -e "  ${GREEN}openclaw-doctor${NC}       运行诊断"
 echo -e "  ${GREEN}openclaw-shell${NC}        进入 VM"
 echo ""

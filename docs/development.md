@@ -119,7 +119,7 @@ bash openclaw-orbstack-setup.sh  # Fresh install
 | EBUSY on rename | Bind mount conflict | Script sets `OPENCLAW_STATE_DIR` |
 | Container won't start | Config merge failed | Check `openclaw-logs` |
 | Sandbox tools fail | Wrong image | Verify `common` image is used |
-| Browser tool fails | Browser sandbox not built | Rebuild with `sandbox-browser-setup.sh` |
+| Browser tool fails | Browser sandbox not built | Run `openclaw-sandbox-rebuild` or `sandbox-browser-setup.sh` |
 
 ### Debug Mode
 
