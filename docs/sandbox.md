@@ -113,6 +113,8 @@ Docker 容器看不到！只能看到 /workspace
 
 **不要设置 `sandbox.mode: "off"`** — 那样 AI 可以通过 `/mnt/mac` 访问你整个 Mac！
 
+> 多 Agent 场景下，每个 Agent 可以覆盖沙箱配置（scope、网络、工具权限），详见 [multi-agent.md](multi-agent.md#沙箱与-docker-容器)。
+
 ## 默认配置
 
 ```json

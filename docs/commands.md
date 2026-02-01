@@ -256,6 +256,8 @@ openclaw agent -m "think" --thinking high
 openclaw agent -m "local" --local  # 本地运行
 ```
 
+> 多 Agent 路由配置、多 Bot 绑定详见 [multi-agent.md](multi-agent.md)。
+
 ### Skills 管理
 
 ```bash

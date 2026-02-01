@@ -288,51 +288,37 @@ OpenClaw 使用 **JSON5** 格式，支持：
 
 ### 场景 4: 多 Agent 路由
 
+多 Agent 允许不同渠道、账号或联系人使用不同的 Agent（独立人设、模型、沙箱）：
+
 ```json5
 {
   agents: {
     defaults: {
       workspace: "~/.openclaw/workspace",
-      sandbox: { mode: "all" }  // 推荐 all 模式
+      sandbox: { mode: "all" }
     },
     list: [
       {
         id: "personal",
         default: true,
         workspace: "~/.openclaw/workspace-personal",
-        model: { primary: "anthropic/claude-opus-4-5" },
-        sandbox: { mode: "all" }  // 建议保持沙箱保护 Mac 文件
+        model: { primary: "anthropic/claude-opus-4-5" }
       },
       {
         id: "work",
         workspace: "~/.openclaw/workspace-work",
         model: { primary: "anthropic/claude-sonnet-4-5" }
-      },
-      {
-        id: "family",
-        workspace: "~/.openclaw/workspace-family",
-        model: { primary: "anthropic/claude-haiku-4" },
-        sandbox: { mode: "all", workspaceAccess: "ro" },
-        tools: {
-          deny: ["exec", "write", "edit"]  // 只读模式
-        }
       }
     ]
   },
-  
-  // 路由规则
   bindings: [
-    { agentId: "personal", match: { channel: "whatsapp", peer: { kind: "dm", id: "+8613800138000" } } },
-    { agentId: "work", match: { channel: "slack" } },
-    { agentId: "family", match: { channel: "whatsapp", peer: { kind: "group", id: "family-group-id" } } }
-  ],
-  
-  channels: {
-    whatsapp: { dmPolicy: "pairing" },
-    slack: { enabled: true, botToken: "xoxb-..." }
-  }
+    { agentId: "opus", match: { channel: "telegram" } },
+    { agentId: "work", match: { channel: "whatsapp" } }
+  ]
 }
 ```
+
+> 完整的多 Agent 配置指南（添加 Agent、多 Bot 绑定、路由规则、沙箱隔离）见 [multi-agent.md](multi-agent.md)。
 
 ---
 

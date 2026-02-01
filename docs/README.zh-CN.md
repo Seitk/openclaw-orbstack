@@ -149,11 +149,12 @@ openclaw-restart
 | 文档 | 内容 |
 |------|------|
 | [commands.md](commands.md) | CLI 命令完整参考 |
-| [architecture.md](architecture.md) | 架构说明 |
+| [architecture.md](architecture.md) | 系统架构说明 |
 | [configuration-guide.md](configuration-guide.md) | 配置指南 |
-| [troubleshooting.md](troubleshooting.md) | 故障排查指南 |
-| [sandbox.md](sandbox.md) | 沙箱安全 |
+| [multi-agent.md](multi-agent.md) | 多 Agent 配置（路由、多 Bot、沙箱隔离） |
+| [sandbox.md](sandbox.md) | 沙箱安全模型 |
 | [voice-tts.md](voice-tts.md) | 语音功能 |
+| [troubleshooting.md](troubleshooting.md) | 故障排查指南 |
 
 ## License
 
