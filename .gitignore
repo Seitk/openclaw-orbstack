@@ -4,3 +4,9 @@
 
 # Personal config folder (never commit)
 local/
+
+# AI tool configs (personal, not project-level)
+.sisyphus/
+.opencode/
+.claude/
+.mcp.json.example.claude
