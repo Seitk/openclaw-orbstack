@@ -10,3 +10,4 @@ local/
 .opencode/
 .claude/
 .mcp.json.example.claude
+opencode.json.example
