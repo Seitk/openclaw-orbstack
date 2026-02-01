@@ -1,4 +1,6 @@
 #!/bin/bash
+# shellcheck disable=SC2034
+# All variables are used externally via `source` in other scripts
 # ============================================================================
 # OpenClaw 中文语言包
 # ============================================================================
