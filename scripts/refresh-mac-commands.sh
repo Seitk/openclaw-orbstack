@@ -37,6 +37,7 @@ OPENCLAW_LANG_CODE=$(select_language)
 LANG_FILE="$SCRIPT_DIR/lang/${OPENCLAW_LANG_CODE}.sh"
 
 if [ -f "$LANG_FILE" ]; then
+    # shellcheck source=../lang/en.sh
     source "$LANG_FILE"
 else
     echo "Warning: Language file $LANG_FILE not found, falling back to English"
