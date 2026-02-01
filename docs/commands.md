@@ -114,12 +114,21 @@ openclaw logs --lines 100          # 指定行数
 ### Gateway 管理
 
 ```bash
-openclaw gateway status            # Gateway 状态
-openclaw gateway status --deep     # 深度扫描
-openclaw gateway health            # 健康检查
-openclaw gateway probe             # 完整可达性探测
-openclaw gateway discover          # Bonjour 发现
-openclaw gateway usage-cost        # 使用成本摘要
+openclaw gateway status                    # Gateway 状态
+openclaw gateway status --deep             # 深度扫描
+openclaw gateway health                    # 健康检查
+openclaw gateway probe                     # 完整可达性探测
+openclaw gateway discover                  # Bonjour 发现
+openclaw gateway usage-cost                # 使用成本摘要
+
+# 生命周期管理 (OrbStack 环境下一般用 openclaw-start/stop/restart 快捷命令)
+openclaw gateway run                       # 前台运行 Gateway
+openclaw gateway install                   # 安装 Gateway 服务
+openclaw gateway uninstall                 # 卸载 Gateway 服务
+openclaw gateway start                     # 启动 Gateway 服务
+openclaw gateway stop                      # 停止 Gateway 服务
+openclaw gateway restart                   # 重启 Gateway 服务
+openclaw gateway call <method>             # 调用 Gateway RPC 方法
 ```
 
 ### 频道管理
@@ -189,9 +198,10 @@ openclaw pairing approve telegram <CODE> --notify  # 批准并通知用户
 
 ```bash
 # 状态
-openclaw models status             # 配置的模型状态
-openclaw models status --probe     # 探测 API 认证
-openclaw models status --check     # 认证即将过期时退出非零
+openclaw models status                     # 配置的模型状态
+openclaw models status --probe             # 探测 API 认证
+openclaw models status --check             # 认证即将过期时退出非零
+openclaw models status --agent <id>        # 指定 Agent 的模型状态
 openclaw models list               # 列出配置的模型
 openclaw models list --all         # 完整模型目录
 
@@ -205,11 +215,27 @@ openclaw models aliases list
 openclaw models aliases add <alias> <model>
 openclaw models aliases remove <alias>
 
+# 回退模型
+openclaw models fallbacks list             # 列出回退模型
+openclaw models fallbacks add <model>      # 添加回退模型
+openclaw models fallbacks remove <model>   # 移除回退模型
+openclaw models fallbacks clear            # 清除所有回退模型
+
+# 图像回退模型
+openclaw models image-fallbacks list       # 列出图像回退模型
+openclaw models image-fallbacks add <model>
+openclaw models image-fallbacks remove <model>
+openclaw models image-fallbacks clear
+
 # 认证
-openclaw models auth add           # 交互式添加认证
-openclaw models auth login         # 提供商登录流程
-openclaw models auth setup-token   # 设置 token
-openclaw models auth paste-token   # 粘贴 token
+openclaw models auth add                   # 交互式添加认证
+openclaw models auth login                 # 提供商登录流程
+openclaw models auth login-github-copilot  # GitHub Copilot 登录
+openclaw models auth setup-token           # 设置 token
+openclaw models auth paste-token           # 粘贴 token
+openclaw models auth order get             # 查看认证优先级
+openclaw models auth order set             # 设置认证优先级
+openclaw models auth order clear           # 清除认证优先级
 ```
 
 ### Agent 管理
@@ -327,9 +353,33 @@ openclaw plugins doctor            # 插件诊断
 ### 沙箱
 
 ```bash
-openclaw sandbox list              # 列出沙箱容器
-openclaw sandbox recreate          # 重建沙箱
-openclaw sandbox explain           # 解释沙箱配置
+# 列出沙箱
+openclaw sandbox list                      # 列出沙箱容器
+openclaw sandbox list --browser            # 列出浏览器沙箱
+openclaw sandbox list --session <id>       # 按会话过滤
+
+# 重建沙箱
+openclaw sandbox recreate                  # 重建沙箱
+openclaw sandbox recreate --all            # 重建所有沙箱
+openclaw sandbox recreate --browser        # 重建浏览器沙箱
+openclaw sandbox recreate --agent <name>   # 重建指定 Agent 的沙箱
+openclaw sandbox recreate --force          # 强制重建 (不确认)
+
+# 解释配置
+openclaw sandbox explain                   # 解释沙箱配置
+openclaw sandbox explain --agent <id>      # 指定 Agent
+```
+
+### Shell 自动补全
+
+```bash
+openclaw completion                        # 生成 zsh 补全脚本 (默认)
+openclaw completion --shell bash           # 生成 bash 补全脚本
+openclaw completion --shell fish           # 生成 fish 补全脚本
+openclaw completion --shell powershell     # 生成 PowerShell 补全脚本
+
+openclaw completion --install              # 安装补全脚本到 shell 配置
+openclaw completion --install --yes        # 跳过确认直接安装
 ```
 
 ### 其他
@@ -350,6 +400,14 @@ openclaw update --check            # 检查更新
 openclaw --version                 # 版本
 openclaw --help                    # 帮助
 ```
+
+### 高级命令
+
+以下命令主要用于开发和系统集成，一般用户无需使用：
+
+`acp`, `system`, `nodes`, `devices`, `dns`, `docs`, `hooks`, `webhooks`, `directory`, `security`, `tui`
+
+运行 `openclaw <command> --help` 查看详情。
 
 ---
 
