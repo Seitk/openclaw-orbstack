@@ -46,7 +46,14 @@ Mac ─┼───────────────────────�
 bash openclaw-orbstack-setup.sh
 ```
 
-The script automatically: Creates VM → Installs Docker/Node.js → Builds OpenClaw → Runs setup wizard → Starts service
+The script starts with a language selection prompt (English / 中文), then automatically: Creates VM → Installs Docker/Node.js → Builds OpenClaw → Runs setup wizard → Starts service
+
+To skip the prompt, set the language via environment variable:
+
+```bash
+OPENCLAW_LANG=en bash openclaw-orbstack-setup.sh      # English
+OPENCLAW_LANG=zh-CN bash openclaw-orbstack-setup.sh   # Chinese
+```
 
 ## Access
 

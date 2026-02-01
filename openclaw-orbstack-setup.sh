@@ -1,124 +1,161 @@
 #!/bin/bash
 # ============================================================================
-# OpenClaw OrbStack 一键部署脚本 (本地安装版)
+# OpenClaw OrbStack One-Click Deployment (Local Install)
 #
-# 架构: Gateway 直接运行在 VM 上，沙箱在 Docker 容器中
+# Architecture: Gateway runs directly on VM, sandboxes in Docker containers
 #
 #   Mac
 #   └── OrbStack
 #       └── Ubuntu VM (openclaw-vm)
-#           ├── Gateway 进程 (Node.js, systemd 管理)
+#           ├── Gateway process (Node.js, managed by systemd)
 #           └── Docker
-#               ├── sandbox-common 容器
-#               └── sandbox-browser 容器
+#               ├── sandbox-common container
+#               └── sandbox-browser container
 #
-# 在 Mac 终端运行：
+# Run in Mac terminal:
 #   bash openclaw-orbstack-setup.sh
 #
-# 前置条件：
+# Prerequisites:
 #   - macOS 12.3+
-#   - OrbStack 已安装 (https://orbstack.dev)
+#   - OrbStack installed (https://orbstack.dev)
 #
-# 脚本共 8 步：
-#   1. 检查 OrbStack         — 确认 orb 命令可用
-#   2. 创建 Ubuntu VM        — OrbStack 轻量虚拟机
-#   3. 安装 Docker           — VM 内安装 Docker Engine (仅供沙箱使用)
-#   4. 安装 Node.js          — 安装 Node.js 20.x LTS
-#   5. 克隆并构建 OpenClaw    — 本地编译 (npm install + build)
-#   6. 构建沙箱镜像           — sandbox-common + sandbox-browser
-#   7. 运行配置向导           — 设置 API Key 和聊天平台
-#   8. 配置 systemd 服务      — Gateway 开机自启 + Mac 端快捷命令
+# Language:
+#   Interactive selection at startup. Skip prompt with:
+#     OPENCLAW_LANG=en bash openclaw-orbstack-setup.sh
+#     OPENCLAW_LANG=zh-CN bash openclaw-orbstack-setup.sh
+#
+# Steps (8 total):
+#   1. Check OrbStack
+#   2. Create Ubuntu VM
+#   3. Install Docker Engine (for sandboxes)
+#   4. Install Node.js 22.x LTS
+#   5. Clone & build OpenClaw
+#   6. Build sandbox images
+#   7. Run configuration wizard
+#   8. Configure systemd service + Mac commands
 #
 # ============================================================================
 
 set -e
 
-# --- 颜色 ---
+# --- Language Selection ---
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+select_language() {
+    # If explicitly set via env var, skip interactive prompt
+    if [ -n "$OPENCLAW_LANG" ]; then
+        echo "$OPENCLAW_LANG"
+        return
+    fi
+
+    echo ""
+    echo "Choose language / 选择语言:"
+    echo ""
+    echo "  1) English"
+    echo "  2) 中文"
+    echo ""
+    while true; do
+        read -rp "Enter 1 or 2 / 输入 1 或 2: " choice
+        case "$choice" in
+            1) echo "en"; return ;;
+            2) echo "zh-CN"; return ;;
+            *) echo "  Invalid choice / 无效选择, please enter 1 or 2 / 请输入 1 或 2" ;;
+        esac
+    done
+}
+
+OPENCLAW_LANG_CODE=$(select_language)
+LANG_FILE="$SCRIPT_DIR/lang/${OPENCLAW_LANG_CODE}.sh"
+
+if [ -f "$LANG_FILE" ]; then
+    # shellcheck source=lang/en.sh
+    source "$LANG_FILE"
+else
+    echo "Warning: Language file $LANG_FILE not found, falling back to English"
+    source "$SCRIPT_DIR/lang/en.sh"
+fi
+
+# --- Colors ---
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-# --- 配置 (可通过环境变量覆盖) ---
+# --- Configuration (override via environment variables) ---
 VM_NAME="${OPENCLAW_VM_NAME:-openclaw-vm}"
 VM_DISTRO="${OPENCLAW_VM_DISTRO:-ubuntu}"
 GATEWAY_PORT="${OPENCLAW_PORT:-18789}"
 TOTAL_STEPS=8
 
-# --- 可选环境变量 ---
-# OPENCLAW_VM_NAME            - 虚拟机名称 (默认: openclaw-vm)
-# OPENCLAW_VM_DISTRO          - 虚拟机发行版 (默认: ubuntu)
-# OPENCLAW_PORT               - 网关端口 (默认: 18789)
-
-# --- 输出函数 ---
+# --- Output Functions ---
 step()    { echo -e "\n${CYAN}[$1/$TOTAL_STEPS] $2${NC}"; }
 ok()      { echo -e "${GREEN}  ✓ $1${NC}"; }
 warn()    { echo -e "${YELLOW}  ⚠ $1${NC}"; }
 err()     { echo -e "${RED}  ✗ $1${NC}"; }
 info()    { echo -e "  $1"; }
 
-# --- VM 命令执行 ---
+# --- VM Command Execution ---
 vm_exec() {
     orb -m "$VM_NAME" bash -c "$1"
 }
 
 # ============================================================================
-# 步骤 1/8: 检查 OrbStack
+# Step 1/8
 # ============================================================================
-step 1 "检查 OrbStack"
+step 1 "$MSG_STEP_1"
 
 if ! command -v orb &> /dev/null; then
-    err "未检测到 OrbStack"
+    err "$MSG_ERR_NO_ORBSTACK"
     echo ""
-    echo "请先安装："
-    echo "  1. 访问 https://orbstack.dev 下载安装"
-    echo "  2. 启动 OrbStack 完成初始化"
-    echo "  3. 重新运行此脚本"
+    echo "$MSG_INSTALL_ORBSTACK_1"
+    echo "$MSG_INSTALL_ORBSTACK_2"
+    echo "$MSG_INSTALL_ORBSTACK_3"
+    echo "$MSG_INSTALL_ORBSTACK_4"
     exit 1
 fi
 
-ok "OrbStack 已安装: $(orb version 2>/dev/null || echo 'unknown')"
+ok "$MSG_OK_ORBSTACK: $(orb version 2>/dev/null || echo 'unknown')"
 
 # ============================================================================
-# 步骤 2/8: 创建 Ubuntu VM
+# Step 2/8
 # ============================================================================
-step 2 "创建 Ubuntu VM"
+step 2 "$MSG_STEP_2"
 
 if orb list 2>/dev/null | grep -q "$VM_NAME"; then
-    ok "虚拟机 '$VM_NAME' 已存在"
+    ok "$(printf "$MSG_OK_VM_EXISTS" "$VM_NAME")"
     if ! orb list 2>/dev/null | grep "$VM_NAME" | grep -q "running"; then
-        info "启动虚拟机..."
+        info "$MSG_INFO_STARTING_VM"
         orb start "$VM_NAME"
     fi
 else
-    info "创建虚拟机: $VM_NAME ($VM_DISTRO)"
+    info "$(printf "$MSG_INFO_CREATING_VM" "$VM_NAME" "$VM_DISTRO")"
     orb create "$VM_DISTRO" "$VM_NAME"
 fi
 
 sleep 3
-ok "虚拟机已就绪"
+ok "$MSG_OK_VM_READY"
 
 # ============================================================================
-# 步骤 3/8: 安装 Docker Engine (仅供沙箱使用)
+# Step 3/8
 # ============================================================================
-step 3 "安装 Docker"
+step 3 "$MSG_STEP_3"
 
 if vm_exec "command -v docker &> /dev/null"; then
-    ok "Docker 已安装: $(vm_exec 'docker --version' 2>/dev/null)"
+    ok "$MSG_OK_DOCKER_INSTALLED: $(vm_exec 'docker --version' 2>/dev/null)"
 else
-    info "安装 Docker Engine..."
+    info "$MSG_INFO_INSTALLING_DOCKER"
     vm_exec "curl -fsSL https://get.docker.com | sh"
     vm_exec "sudo usermod -aG docker \$USER"
 fi
 
 vm_exec "sudo systemctl enable docker && sudo systemctl start docker" || true
-ok "Docker 服务已启动"
+ok "$MSG_OK_DOCKER_STARTED"
 
 # ============================================================================
-# 步骤 4/8: 安装 Node.js 20.x LTS
+# Step 4/8
 # ============================================================================
-step 4 "安装 Node.js"
+step 4 "$MSG_STEP_4"
 
 REQUIRED_NODE_MAJOR=22
 
@@ -126,119 +163,119 @@ if vm_exec "command -v node &> /dev/null"; then
     NODE_VERSION=$(vm_exec 'node --version' 2>/dev/null)
     NODE_MAJOR=$(echo "$NODE_VERSION" | sed 's/v\([0-9]*\).*/\1/')
     if [ "$NODE_MAJOR" -ge "$REQUIRED_NODE_MAJOR" ]; then
-        ok "Node.js 已安装: $NODE_VERSION"
+        ok "$MSG_OK_NODE_INSTALLED: $NODE_VERSION"
     else
-        info "Node.js $NODE_VERSION 版本过低，升级到 22.x..."
+        info "$(printf "$MSG_INFO_NODE_UPGRADE" "$NODE_VERSION")"
         vm_exec "curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -"
         vm_exec "sudo apt-get install -y nodejs"
-        ok "Node.js 已升级: $(vm_exec 'node --version')"
+        ok "$MSG_OK_NODE_UPGRADED: $(vm_exec 'node --version')"
     fi
 else
-    info "安装 Node.js 22.x..."
+    info "$MSG_INFO_INSTALLING_NODE"
     vm_exec "curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -"
     vm_exec "sudo apt-get install -y nodejs"
-    ok "Node.js 已安装: $(vm_exec 'node --version')"
+    ok "$MSG_OK_NODE_INSTALLED: $(vm_exec 'node --version')"
 fi
 
-# 安装构建工具
+# Build tools
 vm_exec "sudo apt-get install -y build-essential git" || true
 
-# 安装 pnpm (OpenClaw 构建需要)
+# pnpm (required by OpenClaw build)
 if vm_exec "command -v pnpm &> /dev/null"; then
-    ok "pnpm 已安装: $(vm_exec 'pnpm --version')"
+    ok "$MSG_OK_PNPM_INSTALLED: $(vm_exec 'pnpm --version')"
 else
-    info "安装 pnpm..."
+    info "$MSG_INFO_INSTALLING_PNPM"
     vm_exec "sudo npm install -g pnpm"
-    ok "pnpm 已安装: $(vm_exec 'pnpm --version')"
+    ok "$MSG_OK_PNPM_INSTALLED: $(vm_exec 'pnpm --version')"
 fi
 
 # ============================================================================
-# 步骤 5/8: 克隆并构建 OpenClaw
+# Step 5/8
 # ============================================================================
-step 5 "克隆并构建 OpenClaw"
+step 5 "$MSG_STEP_5"
 
 if vm_exec "test -d ~/openclaw"; then
-    info "仓库已存在，拉取最新代码..."
+    info "$MSG_INFO_REPO_EXISTS"
     vm_exec "cd ~/openclaw && git pull"
 else
-    info "克隆仓库..."
+    info "$MSG_INFO_CLONING"
     vm_exec "git clone https://github.com/openclaw/openclaw.git ~/openclaw"
 fi
 
-info "安装依赖 (npm install)..."
+info "$MSG_INFO_NPM_INSTALL"
 vm_exec "cd ~/openclaw && npm install"
 
-info "编译项目 (npm run build)..."
+info "$MSG_INFO_NPM_BUILD"
 vm_exec "cd ~/openclaw && npm run build"
 
-info "构建 Control UI..."
+info "$MSG_INFO_UI_BUILD"
 vm_exec "cd ~/openclaw && pnpm ui:build"
 
-info "全局安装 CLI..."
+info "$MSG_INFO_GLOBAL_INSTALL"
 vm_exec "cd ~/openclaw && sudo npm install -g ."
 
-ok "OpenClaw 构建完成 (CLI: openclaw)"
+ok "$MSG_OK_BUILD_DONE"
 
 # ============================================================================
-# 步骤 6/8: 构建沙箱 Docker 镜像
+# Step 6/8
 # ============================================================================
-step 6 "构建沙箱镜像"
+step 6 "$MSG_STEP_6"
 
-info "构建基础沙箱镜像 (sandbox-common 的构建依赖)..."
+info "$MSG_INFO_SANDBOX_BASE"
 if vm_exec "cd ~/openclaw && sg docker -c './scripts/sandbox-setup.sh'" 2>/dev/null; then
-    ok "sandbox 基础镜像构建完成"
+    ok "$MSG_OK_SANDBOX_BASE"
 elif vm_exec "cd ~/openclaw && sg docker -c 'docker build -t openclaw-sandbox:bookworm-slim -f Dockerfile.sandbox .'" 2>/dev/null; then
-    ok "sandbox 基础镜像构建完成 (Dockerfile)"
+    ok "$MSG_OK_SANDBOX_BASE_DF"
 else
-    warn "sandbox 基础镜像构建失败，sandbox-common 可能也会失败"
+    warn "$MSG_WARN_SANDBOX_BASE_FAIL"
 fi
 
-info "构建浏览器沙箱镜像..."
+info "$MSG_INFO_SANDBOX_BROWSER"
 if vm_exec "cd ~/openclaw && sg docker -c './scripts/sandbox-browser-setup.sh'" 2>/dev/null; then
-    ok "sandbox-browser 镜像构建完成"
+    ok "$MSG_OK_SANDBOX_BROWSER"
 elif vm_exec "cd ~/openclaw && sg docker -c 'docker build -t openclaw-sandbox-browser:bookworm-slim -f Dockerfile.sandbox-browser .'" 2>/dev/null; then
-    ok "sandbox-browser 镜像构建完成 (Dockerfile)"
+    ok "$MSG_OK_SANDBOX_BROWSER_DF"
 else
-    warn "sandbox-browser 镜像构建失败，跳过"
+    warn "$MSG_WARN_SANDBOX_BROWSER_FAIL"
 fi
 
-info "构建 common 沙箱镜像 (基于基础镜像，加装开发工具)..."
+info "$MSG_INFO_SANDBOX_COMMON"
 if vm_exec "cd ~/openclaw && sg docker -c './scripts/sandbox-common-setup.sh'" 2>/dev/null; then
-    ok "sandbox-common 镜像构建完成"
+    ok "$MSG_OK_SANDBOX_COMMON"
 else
-    warn "sandbox-common 镜像构建失败 (需要基础镜像先构建成功)"
+    warn "$MSG_WARN_SANDBOX_COMMON_FAIL"
 fi
 
 # ============================================================================
-# 步骤 7/8: 运行配置向导
+# Step 7/8
 # ============================================================================
-step 7 "运行配置向导"
+step 7 "$MSG_STEP_7"
 
 echo ""
-info "接下来进入交互式配置向导 (onboard)，请准备："
-info "  - AI 模型 API Key（支持 Anthropic / OpenAI / OpenRouter 等）"
-info "  - Telegram Bot Token (从 @BotFather 获取) 或其他平台凭据"
+info "$MSG_INFO_ONBOARD_INTRO"
+info "$MSG_INFO_ONBOARD_API"
+info "$MSG_INFO_ONBOARD_TOKEN"
 echo ""
-echo -e "${YELLOW}按 Enter 继续...${NC}"
+echo -e "${YELLOW}$MSG_PRESS_ENTER${NC}"
 read -r
 
 vm_exec "mkdir -p ~/.openclaw"
 
 orb -m "$VM_NAME" openclaw onboard
 
-ok "配置向导完成"
+ok "$MSG_OK_ONBOARD_DONE"
 
-info "创建 memory 索引目录..."
+info "$MSG_INFO_CREATING_MEMORY"
 vm_exec "mkdir -p ~/.openclaw/memory && chmod 755 ~/.openclaw/memory"
-ok "memory 索引目录已创建"
+ok "$MSG_OK_MEMORY_CREATED"
 
 # ============================================================================
-# 步骤 8/8: 配置 systemd 服务 + Mac 端便捷命令
+# Step 8/8
 # ============================================================================
-step 8 "配置服务与便捷命令"
+step 8 "$MSG_STEP_8"
 
-# --- 创建 systemd 服务 ---
-info "创建 systemd 服务..."
+# --- Create systemd service ---
+info "$MSG_INFO_CREATING_SERVICE"
 
 VM_USER=$(vm_exec 'whoami')
 VM_HOME=$(vm_exec 'echo $HOME')
@@ -274,13 +311,18 @@ vm_exec "sudo systemctl start openclaw"
 sleep 3
 
 if vm_exec "systemctl is-active openclaw" | grep -q "active"; then
-    ok "Gateway 服务已启动"
+    ok "$MSG_OK_GATEWAY_STARTED"
 else
-    warn "Gateway 服务启动可能有问题，请检查: openclaw-logs"
+    warn "$MSG_WARN_GATEWAY_ISSUE"
 fi
 
-# --- 创建 Mac 端便捷命令 ---
+# --- Create Mac convenience commands ---
 mkdir -p ~/bin
+
+# Save language preference for generated commands
+cat > ~/bin/.openclaw-lang << LANG_EOF
+OPENCLAW_LANG=$OPENCLAW_LANG_CODE
+LANG_EOF
 
 cat > ~/bin/openclaw-status << 'EOF'
 #!/bin/bash
@@ -312,185 +354,203 @@ cat > ~/bin/openclaw-shell << 'EOF'
 orb -m openclaw-vm
 EOF
 
+# --- Helper: load language for commands ---
+_LANG_LOADER='
+# Load language
+_OPENCLAW_LANG="en"
+if [ -f "$HOME/bin/.openclaw-lang" ]; then source "$HOME/bin/.openclaw-lang"; _OPENCLAW_LANG="${OPENCLAW_LANG:-en}"; fi
+_SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")")/.." && pwd)"
+_LANG_FILE=""
+for _d in "$_SCRIPT_DIR/lang" "/usr/local/share/openclaw/lang" "$(dirname "$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")")/../lang"; do
+    if [ -f "$_d/${_OPENCLAW_LANG}.sh" ]; then _LANG_FILE="$_d/${_OPENCLAW_LANG}.sh"; break; fi
+done
+if [ -n "$_LANG_FILE" ]; then source "$_LANG_FILE"; fi
+'
+
+# openclaw (CLI passthrough) - no language needed
 cat > ~/bin/openclaw << 'EOF'
 #!/bin/bash
-# OpenClaw CLI - 透传到 VM 的官方 CLI
 if [ $# -eq 0 ]; then
     set -- "--help"
 fi
 orb -m openclaw-vm bash -c "openclaw $*"
 EOF
 
-cat > ~/bin/openclaw-config << 'EOF'
+# openclaw-config - needs language
+cat > ~/bin/openclaw-config << CMDEOF
 #!/bin/bash
-ACTION="${1:-edit}"
-CONFIG_PATH="$HOME/.openclaw/openclaw.json"
+$_LANG_LOADER
+ACTION="\${1:-edit}"
 
-case "$ACTION" in
+case "\$ACTION" in
     edit)
-        echo "正在打开配置编辑器..."
+        echo "\$MSG_CMD_CONFIG_OPENING"
         orb -m openclaw-vm bash -c "nano ~/.openclaw/openclaw.json 2>/dev/null || vi ~/.openclaw/openclaw.json"
-        echo "配置已保存。运行 openclaw-restart 使更改生效。"
+        echo "\$MSG_CMD_CONFIG_SAVED"
         ;;
     show)
         orb -m openclaw-vm bash -c "cat ~/.openclaw/openclaw.json"
         ;;
     backup)
-        BACKUP="openclaw-config-$(date +%Y%m%d-%H%M%S).json"
-        orb -m openclaw-vm bash -c "cat ~/.openclaw/openclaw.json" > "$BACKUP"
-        echo "已备份到: $BACKUP"
+        BACKUP="openclaw-config-\$(date +%Y%m%d-%H%M%S).json"
+        orb -m openclaw-vm bash -c "cat ~/.openclaw/openclaw.json" > "\$BACKUP"
+        printf "\$MSG_CMD_CONFIG_BACKED_UP\n" "\$BACKUP"
         ;;
     *)
-        echo "用法: openclaw-config [edit|show|backup]"
+        echo "\$MSG_CMD_CONFIG_USAGE"
         ;;
 esac
-EOF
+CMDEOF
 
-cat > ~/bin/openclaw-update << 'EOF'
+# openclaw-update - needs language
+cat > ~/bin/openclaw-update << CMDEOF
 #!/bin/bash
 set -e
+$_LANG_LOADER
 
 SANDBOX=false
-for arg in "$@"; do
-    case "$arg" in
+for arg in "\$@"; do
+    case "\$arg" in
         --sandbox) SANDBOX=true ;;
         --help|-h)
-            echo "用法: openclaw-update [--sandbox]"
+            echo "\$MSG_CMD_UPDATE_USAGE"
             echo ""
-            echo "更新 OpenClaw 应用到最新版本。"
+            echo "\$MSG_CMD_UPDATE_DESC"
             echo ""
-            echo "选项:"
-            echo "  --sandbox    同时重建沙箱 Docker 镜像"
+            echo "\$MSG_CMD_UPDATE_OPTIONS"
+            echo "\$MSG_CMD_UPDATE_SANDBOX_OPT"
             echo ""
-            echo "提示: 单独重建沙箱可用 openclaw-sandbox-rebuild"
+            echo "\$MSG_CMD_UPDATE_TIP"
             exit 0
             ;;
     esac
 done
 
-echo "🔄 正在更新 OpenClaw..."
+echo "\$MSG_CMD_UPDATE_UPDATING"
 
-echo "  停止服务..."
+echo "\$MSG_CMD_UPDATE_STOPPING"
 orb -m openclaw-vm bash -c "sudo systemctl stop openclaw"
 
-echo "  拉取最新代码..."
+echo "\$MSG_CMD_UPDATE_PULLING"
 orb -m openclaw-vm bash -c "cd ~/openclaw && git pull"
 
-echo "  安装依赖..."
+echo "\$MSG_CMD_UPDATE_INSTALLING"
 orb -m openclaw-vm bash -c "cd ~/openclaw && npm install"
 
-echo "  编译项目..."
+echo "\$MSG_CMD_UPDATE_BUILDING"
 orb -m openclaw-vm bash -c "cd ~/openclaw && npm run build"
 
-echo "  构建 Control UI..."
+echo "\$MSG_CMD_UPDATE_UI"
 orb -m openclaw-vm bash -c "cd ~/openclaw && pnpm ui:build"
 
-echo "  重新安装 CLI..."
+echo "\$MSG_CMD_UPDATE_REINSTALL"
 orb -m openclaw-vm bash -c "cd ~/openclaw && sudo npm install -g ."
 
-if [ "$SANDBOX" = true ]; then
-    echo "  重建沙箱镜像..."
-    echo "    构建基础镜像..."
+if [ "\$SANDBOX" = true ]; then
+    echo "\$MSG_CMD_UPDATE_SANDBOX_REBUILD"
+    echo "\$MSG_CMD_UPDATE_SANDBOX_BASE"
     orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c './scripts/sandbox-setup.sh'" 2>/dev/null || true
-    echo "    构建 common 镜像..."
+    echo "\$MSG_CMD_UPDATE_SANDBOX_COMMON"
     orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c './scripts/sandbox-common-setup.sh'" 2>/dev/null || true
-    echo "    构建浏览器镜像..."
+    echo "\$MSG_CMD_UPDATE_SANDBOX_BROWSER"
     orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c './scripts/sandbox-browser-setup.sh'" 2>/dev/null || true
-    echo "  💡 已运行的容器仍使用旧镜像，重启后生效"
+    echo "\$MSG_CMD_UPDATE_SANDBOX_NOTE"
 fi
 
-echo "  启动服务..."
+echo "\$MSG_CMD_UPDATE_STARTING"
 orb -m openclaw-vm bash -c "sudo systemctl start openclaw"
 
-echo "✅ 更新完成！"
-if [ "$SANDBOX" = false ]; then
-    echo "💡 如需重建沙箱镜像: openclaw-update --sandbox"
+echo "\$MSG_CMD_UPDATE_DONE"
+if [ "\$SANDBOX" = false ]; then
+    echo "\$MSG_CMD_UPDATE_SANDBOX_HINT"
 fi
-EOF
+CMDEOF
 
-cat > ~/bin/openclaw-sandbox-rebuild << 'EOF'
+# openclaw-sandbox-rebuild - needs language
+cat > ~/bin/openclaw-sandbox-rebuild << CMDEOF
 #!/bin/bash
 set -e
-echo "🔨 正在重建沙箱 Docker 镜像..."
+$_LANG_LOADER
 
-# 基础镜像必须先构建（sandbox-common 依赖它）
-echo "  构建基础沙箱镜像..."
+echo "\$MSG_CMD_REBUILD_START"
+
+echo "\$MSG_CMD_REBUILD_BASE"
 if orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c './scripts/sandbox-setup.sh'" 2>/dev/null; then
-    echo "  ✓ sandbox 基础镜像构建完成"
+    echo "\$MSG_CMD_REBUILD_BASE_OK"
 elif orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c 'docker build -t openclaw-sandbox:bookworm-slim -f Dockerfile.sandbox .'" 2>/dev/null; then
-    echo "  ✓ sandbox 基础镜像构建完成 (Dockerfile)"
+    echo "\$MSG_CMD_REBUILD_BASE_OK_DF"
 else
-    echo "  ✗ sandbox 基础镜像构建失败（sandbox-common 可能也会失败）"
+    echo "\$MSG_CMD_REBUILD_BASE_FAIL"
 fi
 
-echo "  构建 common 沙箱镜像..."
+echo "\$MSG_CMD_REBUILD_COMMON"
 if orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c './scripts/sandbox-common-setup.sh'" 2>/dev/null; then
-    echo "  ✓ sandbox-common 镜像构建完成"
+    echo "\$MSG_CMD_REBUILD_COMMON_OK"
 else
-    echo "  ✗ sandbox-common 镜像构建失败"
+    echo "\$MSG_CMD_REBUILD_COMMON_FAIL"
 fi
 
-echo "  构建浏览器沙箱镜像..."
+echo "\$MSG_CMD_REBUILD_BROWSER"
 if orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c './scripts/sandbox-browser-setup.sh'" 2>/dev/null; then
-    echo "  ✓ sandbox-browser 镜像构建完成"
+    echo "\$MSG_CMD_REBUILD_BROWSER_OK"
 elif orb -m openclaw-vm bash -c "cd ~/openclaw && sg docker -c 'docker build -t openclaw-sandbox-browser:bookworm-slim -f Dockerfile.sandbox-browser .'" 2>/dev/null; then
-    echo "  ✓ sandbox-browser 镜像构建完成 (Dockerfile)"
+    echo "\$MSG_CMD_REBUILD_BROWSER_OK_DF"
 else
-    echo "  ✗ sandbox-browser 镜像构建失败"
+    echo "\$MSG_CMD_REBUILD_BROWSER_FAIL"
 fi
 
 echo ""
-echo "✅ 沙箱镜像重建完成！"
-echo "💡 已运行的容器仍使用旧镜像，运行 openclaw-restart 使新镜像生效"
-EOF
+echo "\$MSG_CMD_REBUILD_DONE"
+echo "\$MSG_CMD_REBUILD_NOTE"
+CMDEOF
 
-cat > ~/bin/openclaw-telegram << 'EOF'
+# openclaw-telegram - needs language
+cat > ~/bin/openclaw-telegram << CMDEOF
 #!/bin/bash
-# Telegram Bot 管理
-ACTION="${1:-help}"
+$_LANG_LOADER
+ACTION="\${1:-help}"
 
-case "$ACTION" in
+case "\$ACTION" in
     add)
-        if [ -z "$2" ]; then
-            echo "用法: openclaw-telegram add <bot_token>"
-            echo "从 @BotFather 获取 token"
+        if [ -z "\$2" ]; then
+            echo "\$MSG_CMD_TG_ADD_USAGE"
+            echo "\$MSG_CMD_TG_ADD_HINT"
             exit 1
         fi
-        orb -m openclaw-vm bash -c "openclaw channels add --channel telegram --token $2"
+        orb -m openclaw-vm bash -c "openclaw channels add --channel telegram --token \$2"
         ;;
     approve)
-        if [ -z "$2" ]; then
-            echo "用法: openclaw-telegram approve <pairing_code>"
-            echo "输入 Bot 发给你的配对码"
+        if [ -z "\$2" ]; then
+            echo "\$MSG_CMD_TG_APPROVE_USAGE"
+            echo "\$MSG_CMD_TG_APPROVE_HINT"
             exit 1
         fi
-        orb -m openclaw-vm bash -c "openclaw pairing approve telegram $2"
+        orb -m openclaw-vm bash -c "openclaw pairing approve telegram \$2"
         ;;
     *)
-        echo "Telegram Bot 管理"
+        echo "\$MSG_CMD_TG_TITLE"
         echo ""
-        echo "用法:"
-        echo "  openclaw-telegram add <bot_token>      添加 Bot (从 @BotFather 获取)"
-        echo "  openclaw-telegram approve <code>       批准配对 (回执验证码)"
+        echo "\$MSG_CMD_TG_USAGE"
+        echo "\$MSG_CMD_TG_ADD_DESC"
+        echo "\$MSG_CMD_TG_APPROVE_DESC"
         echo ""
-        echo "或直接使用:"
-        echo "  openclaw channels login --channel telegram"
+        echo "\$MSG_CMD_TG_ALT"
+        echo "\$MSG_CMD_TG_ALT_CMD"
         ;;
 esac
-EOF
+CMDEOF
 
 cat > ~/bin/openclaw-whatsapp << 'EOF'
 #!/bin/bash
-# WhatsApp 登录 (扫码)
 orb -m openclaw-vm bash -c "openclaw channels login --channel whatsapp"
 EOF
 
 chmod +x ~/bin/openclaw-*
 chmod +x ~/bin/openclaw
-ok "便捷命令已创建"
+ok "$MSG_OK_COMMANDS_CREATED"
 
-# --- 写入默认沙箱配置 ---
-info "写入沙箱配置..."
+# --- Write default sandbox configuration ---
+info "$MSG_INFO_SANDBOX_CONFIG"
 
 vm_exec 'cat > /tmp/sandbox-config.json << '\''SANDBOX_EOF'\''
 {
@@ -558,24 +618,24 @@ if os.path.exists(config_path):
         config = json.load(f)
     with open(sandbox_path, "r") as f:
         sandbox = json.load(f)
-    
+
     # Deep merge agents.defaults.sandbox
     if "agents" not in config:
         config["agents"] = {}
     if "defaults" not in config["agents"]:
         config["agents"]["defaults"] = {}
     config["agents"]["defaults"]["sandbox"] = sandbox["agents"]["defaults"]["sandbox"]
-    
+
     # Merge tools.sandbox.tools
     if "tools" not in config:
         config["tools"] = {}
     if "sandbox" not in config["tools"]:
         config["tools"]["sandbox"] = {}
     config["tools"]["sandbox"]["tools"] = sandbox["tools"]["sandbox"]["tools"]
-    
+
     # Merge browser
     config["browser"] = sandbox["browser"]
-    
+
     with open(config_path, "w") as f:
         json.dump(config, f, indent=2)
     print("merged")
@@ -583,53 +643,53 @@ else:
     print("config not found, skipping sandbox merge")
 PYEOF'
 
-ok "沙箱配置已写入"
+ok "$MSG_OK_SANDBOX_CONFIG"
 
-# 检查 PATH
+# Check PATH
 if ! echo "$PATH" | grep -q "$HOME/bin"; then
     if [ -f "$HOME/.zshrc" ]; then
         SHELL_RC="$HOME/.zshrc"
     else
         SHELL_RC="$HOME/.bashrc"
     fi
-    
+
     if ! grep -q 'export PATH="\$HOME/bin:\$PATH"' "$SHELL_RC" 2>/dev/null; then
         echo '' >> "$SHELL_RC"
         echo '# OpenClaw CLI' >> "$SHELL_RC"
         echo 'export PATH="$HOME/bin:$PATH"' >> "$SHELL_RC"
-        info "已添加 ~/bin 到 PATH ($SHELL_RC)"
+        info "$(printf "$MSG_INFO_PATH_ADDED" "$SHELL_RC")"
     fi
 fi
 
 # ============================================================================
-# 完成
+# Complete
 # ============================================================================
 echo ""
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${GREEN}部署完成！${NC}"
+echo -e "${GREEN}$MSG_FINAL_COMPLETE${NC}"
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
-echo "架构:"
-echo "  Mac → OrbStack → Ubuntu VM"
-echo "                   ├── Gateway (systemd 服务)"
-echo "                   └── Docker (沙箱容器)"
+echo "$MSG_FINAL_ARCH"
+echo "$MSG_FINAL_ARCH_DETAIL_1"
+echo "$MSG_FINAL_ARCH_DETAIL_2"
+echo "$MSG_FINAL_ARCH_DETAIL_3"
 echo ""
-echo "访问地址: http://${VM_NAME}.orb.local:${GATEWAY_PORT}"
+echo "$MSG_FINAL_ACCESS: http://${VM_NAME}.orb.local:${GATEWAY_PORT}"
 echo ""
-echo "Mac 端命令:"
+echo "$MSG_FINAL_MAC_COMMANDS"
 echo ""
-echo -e "  ${GREEN}openclaw${NC}              CLI 入口 (透传所有参数)"
-echo -e "  ${GREEN}openclaw-config${NC}       编辑配置"
-echo -e "  ${GREEN}openclaw-status${NC}       服务状态"
-echo -e "  ${GREEN}openclaw-logs${NC}         实时日志"
-echo -e "  ${GREEN}openclaw-restart${NC}      重启服务"
-echo -e "  ${GREEN}openclaw-update${NC}       更新版本 (仅应用，--sandbox 重建镜像)"
-echo -e "  ${GREEN}openclaw-sandbox-rebuild${NC} 重建沙箱镜像"
-echo -e "  ${GREEN}openclaw-doctor${NC}       运行诊断"
-echo -e "  ${GREEN}openclaw-shell${NC}        进入 VM"
+echo -e "  ${GREEN}openclaw${NC}              $MSG_FINAL_CMD_CLI"
+echo -e "  ${GREEN}openclaw-config${NC}       $MSG_FINAL_CMD_CONFIG"
+echo -e "  ${GREEN}openclaw-status${NC}       $MSG_FINAL_CMD_STATUS"
+echo -e "  ${GREEN}openclaw-logs${NC}         $MSG_FINAL_CMD_LOGS"
+echo -e "  ${GREEN}openclaw-restart${NC}      $MSG_FINAL_CMD_RESTART"
+echo -e "  ${GREEN}openclaw-update${NC}       $MSG_FINAL_CMD_UPDATE"
+echo -e "  ${GREEN}openclaw-sandbox-rebuild${NC} $MSG_FINAL_CMD_REBUILD"
+echo -e "  ${GREEN}openclaw-doctor${NC}       $MSG_FINAL_CMD_DOCTOR"
+echo -e "  ${GREEN}openclaw-shell${NC}        $MSG_FINAL_CMD_SHELL"
 echo ""
-echo "沙箱容器 (由 Gateway 按需创建):"
-echo "  - openclaw-sandbox-common   代码执行 (无网络)"
-echo "  - openclaw-sandbox-browser  浏览器自动化"
+echo "$MSG_FINAL_SANDBOX_TITLE"
+echo "$MSG_FINAL_SANDBOX_COMMON"
+echo "$MSG_FINAL_SANDBOX_BROWSER"
 echo ""
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"

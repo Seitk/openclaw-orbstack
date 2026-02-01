@@ -46,7 +46,14 @@ Mac ─┼───────────────────────�
 bash openclaw-orbstack-setup.sh
 ```
 
-脚本会自动完成：创建 VM → 安装 Docker/Node.js → 构建 OpenClaw → 配置向导 → 启动服务
+脚本启动后会先让你选择语言（English / 中文），然后自动完成：创建 VM → 安装 Docker/Node.js → 构建 OpenClaw → 配置向导 → 启动服务
+
+跳过语言选择提示，直接指定语言：
+
+```bash
+OPENCLAW_LANG=zh-CN bash openclaw-orbstack-setup.sh   # 中文
+OPENCLAW_LANG=en bash openclaw-orbstack-setup.sh      # English
+```
 
 ## 访问
 

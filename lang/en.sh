@@ -1,0 +1,186 @@
+#!/bin/bash
+# ============================================================================
+# OpenClaw English Language Pack
+# ============================================================================
+
+# --- Script Header ---
+MSG_SCRIPT_TITLE="OpenClaw OrbStack One-Click Deployment (Local Install)"
+
+# --- Step Titles ---
+MSG_STEP_1="Check OrbStack"
+MSG_STEP_2="Create Ubuntu VM"
+MSG_STEP_3="Install Docker"
+MSG_STEP_4="Install Node.js"
+MSG_STEP_5="Clone & Build OpenClaw"
+MSG_STEP_6="Build Sandbox Images"
+MSG_STEP_7="Run Configuration Wizard"
+MSG_STEP_8="Configure Service & Commands"
+
+# --- Step 1: OrbStack ---
+MSG_ERR_NO_ORBSTACK="OrbStack not detected"
+MSG_INSTALL_ORBSTACK_1="Please install OrbStack first:"
+MSG_INSTALL_ORBSTACK_2="  1. Download from https://orbstack.dev"
+MSG_INSTALL_ORBSTACK_3="  2. Launch OrbStack and complete initialization"
+MSG_INSTALL_ORBSTACK_4="  3. Re-run this script"
+MSG_OK_ORBSTACK="OrbStack installed"
+
+# --- Step 2: VM ---
+MSG_OK_VM_EXISTS="VM '%s' already exists"
+MSG_INFO_STARTING_VM="Starting virtual machine..."
+MSG_INFO_CREATING_VM="Creating VM: %s (%s)"
+MSG_OK_VM_READY="VM is ready"
+
+# --- Step 3: Docker ---
+MSG_OK_DOCKER_INSTALLED="Docker installed"
+MSG_INFO_INSTALLING_DOCKER="Installing Docker Engine..."
+MSG_OK_DOCKER_STARTED="Docker service started"
+
+# --- Step 4: Node.js ---
+MSG_OK_NODE_INSTALLED="Node.js installed"
+MSG_INFO_NODE_UPGRADE="Node.js %s is outdated, upgrading to 22.x..."
+MSG_OK_NODE_UPGRADED="Node.js upgraded"
+MSG_INFO_INSTALLING_NODE="Installing Node.js 22.x..."
+MSG_OK_PNPM_INSTALLED="pnpm installed"
+MSG_INFO_INSTALLING_PNPM="Installing pnpm..."
+
+# --- Step 5: Build ---
+MSG_INFO_REPO_EXISTS="Repository exists, pulling latest code..."
+MSG_INFO_CLONING="Cloning repository..."
+MSG_INFO_NPM_INSTALL="Installing dependencies (npm install)..."
+MSG_INFO_NPM_BUILD="Building project (npm run build)..."
+MSG_INFO_UI_BUILD="Building Control UI..."
+MSG_INFO_GLOBAL_INSTALL="Installing CLI globally..."
+MSG_OK_BUILD_DONE="OpenClaw build complete (CLI: openclaw)"
+
+# --- Step 6: Sandbox ---
+MSG_INFO_SANDBOX_BASE="Building base sandbox image (required by sandbox-common)..."
+MSG_OK_SANDBOX_BASE="sandbox base image built"
+MSG_OK_SANDBOX_BASE_DF="sandbox base image built (Dockerfile)"
+MSG_WARN_SANDBOX_BASE_FAIL="sandbox base image build failed, sandbox-common may also fail"
+MSG_INFO_SANDBOX_BROWSER="Building browser sandbox image..."
+MSG_OK_SANDBOX_BROWSER="sandbox-browser image built"
+MSG_OK_SANDBOX_BROWSER_DF="sandbox-browser image built (Dockerfile)"
+MSG_WARN_SANDBOX_BROWSER_FAIL="sandbox-browser image build failed, skipping"
+MSG_INFO_SANDBOX_COMMON="Building common sandbox image (adds dev tools on top of base)..."
+MSG_OK_SANDBOX_COMMON="sandbox-common image built"
+MSG_WARN_SANDBOX_COMMON_FAIL="sandbox-common image build failed (requires base image to be built first)"
+
+# --- Step 7: Onboard ---
+MSG_INFO_ONBOARD_INTRO="Next: interactive configuration wizard (onboard). Please have ready:"
+MSG_INFO_ONBOARD_API="  - AI model API Key (Anthropic / OpenAI / OpenRouter etc.)"
+MSG_INFO_ONBOARD_TOKEN="  - Telegram Bot Token (from @BotFather) or other platform credentials"
+MSG_PRESS_ENTER="Press Enter to continue..."
+MSG_OK_ONBOARD_DONE="Configuration wizard complete"
+MSG_INFO_CREATING_MEMORY="Creating memory index directory..."
+MSG_OK_MEMORY_CREATED="Memory index directory created"
+
+# --- Step 8: Service & Commands ---
+MSG_INFO_CREATING_SERVICE="Creating systemd service..."
+MSG_OK_GATEWAY_STARTED="Gateway service started"
+MSG_WARN_GATEWAY_ISSUE="Gateway service may have issues, check: openclaw-logs"
+MSG_OK_COMMANDS_CREATED="Convenience commands created"
+MSG_INFO_SANDBOX_CONFIG="Writing sandbox configuration..."
+MSG_OK_SANDBOX_CONFIG="Sandbox configuration written"
+MSG_INFO_PATH_ADDED="Added ~/bin to PATH (%s)"
+
+# --- Mac Command Embedded Text ---
+# openclaw
+MSG_CMD_CLI_COMMENT="OpenClaw CLI - passthrough to VM"
+
+# openclaw-config
+MSG_CMD_CONFIG_OPENING="Opening configuration editor..."
+MSG_CMD_CONFIG_SAVED="Configuration saved. Run openclaw-restart to apply changes."
+MSG_CMD_CONFIG_BACKED_UP="Backed up to: %s"
+MSG_CMD_CONFIG_USAGE="Usage: openclaw-config [edit|show|backup]"
+
+# openclaw-update
+MSG_CMD_UPDATE_USAGE="Usage: openclaw-update [--sandbox]"
+MSG_CMD_UPDATE_DESC="Update OpenClaw to the latest version."
+MSG_CMD_UPDATE_OPTIONS="Options:"
+MSG_CMD_UPDATE_SANDBOX_OPT="  --sandbox    Also rebuild sandbox Docker images"
+MSG_CMD_UPDATE_TIP="Tip: To rebuild sandbox only, use openclaw-sandbox-rebuild"
+MSG_CMD_UPDATE_UPDATING="🔄 Updating OpenClaw..."
+MSG_CMD_UPDATE_STOPPING="  Stopping service..."
+MSG_CMD_UPDATE_PULLING="  Pulling latest code..."
+MSG_CMD_UPDATE_INSTALLING="  Installing dependencies..."
+MSG_CMD_UPDATE_BUILDING="  Building project..."
+MSG_CMD_UPDATE_UI="  Building Control UI..."
+MSG_CMD_UPDATE_REINSTALL="  Reinstalling CLI..."
+MSG_CMD_UPDATE_SANDBOX_REBUILD="  Rebuilding sandbox images..."
+MSG_CMD_UPDATE_SANDBOX_BASE="    Building base image..."
+MSG_CMD_UPDATE_SANDBOX_COMMON="    Building common image..."
+MSG_CMD_UPDATE_SANDBOX_BROWSER="    Building browser image..."
+MSG_CMD_UPDATE_SANDBOX_NOTE="  💡 Running containers still use old images, restart to apply"
+MSG_CMD_UPDATE_STARTING="  Starting service..."
+MSG_CMD_UPDATE_DONE="✅ Update complete!"
+MSG_CMD_UPDATE_SANDBOX_HINT="💡 To rebuild sandbox images: openclaw-update --sandbox"
+
+# openclaw-sandbox-rebuild
+MSG_CMD_REBUILD_START="🔨 Rebuilding sandbox Docker images..."
+MSG_CMD_REBUILD_BASE="  Building base sandbox image..."
+MSG_CMD_REBUILD_BASE_OK="  ✓ sandbox base image built"
+MSG_CMD_REBUILD_BASE_OK_DF="  ✓ sandbox base image built (Dockerfile)"
+MSG_CMD_REBUILD_BASE_FAIL="  ✗ sandbox base image build failed (sandbox-common may also fail)"
+MSG_CMD_REBUILD_COMMON="  Building common sandbox image..."
+MSG_CMD_REBUILD_COMMON_OK="  ✓ sandbox-common image built"
+MSG_CMD_REBUILD_COMMON_FAIL="  ✗ sandbox-common image build failed"
+MSG_CMD_REBUILD_BROWSER="  Building browser sandbox image..."
+MSG_CMD_REBUILD_BROWSER_OK="  ✓ sandbox-browser image built"
+MSG_CMD_REBUILD_BROWSER_OK_DF="  ✓ sandbox-browser image built (Dockerfile)"
+MSG_CMD_REBUILD_BROWSER_FAIL="  ✗ sandbox-browser image build failed"
+MSG_CMD_REBUILD_DONE="✅ Sandbox image rebuild complete!"
+MSG_CMD_REBUILD_NOTE="💡 Running containers still use old images, run openclaw-restart to apply"
+
+# openclaw-telegram
+MSG_CMD_TG_COMMENT="Telegram Bot Management"
+MSG_CMD_TG_ADD_USAGE="Usage: openclaw-telegram add <bot_token>"
+MSG_CMD_TG_ADD_HINT="Get token from @BotFather"
+MSG_CMD_TG_APPROVE_USAGE="Usage: openclaw-telegram approve <pairing_code>"
+MSG_CMD_TG_APPROVE_HINT="Enter the pairing code sent by the Bot"
+MSG_CMD_TG_TITLE="Telegram Bot Management"
+MSG_CMD_TG_USAGE="Usage:"
+MSG_CMD_TG_ADD_DESC="  openclaw-telegram add <bot_token>      Add Bot (get token from @BotFather)"
+MSG_CMD_TG_APPROVE_DESC="  openclaw-telegram approve <code>       Approve pairing (verification code)"
+MSG_CMD_TG_ALT="Or use directly:"
+MSG_CMD_TG_ALT_CMD="  openclaw channels login --channel telegram"
+
+# openclaw-whatsapp
+MSG_CMD_WA_COMMENT="WhatsApp Login (scan QR code)"
+
+# --- Completion Output ---
+MSG_FINAL_COMPLETE="Deployment Complete!"
+MSG_FINAL_ARCH="Architecture:"
+MSG_FINAL_ARCH_DETAIL_1="  Mac → OrbStack → Ubuntu VM"
+MSG_FINAL_ARCH_DETAIL_2="                   ├── Gateway (systemd service)"
+MSG_FINAL_ARCH_DETAIL_3="                   └── Docker (sandbox containers)"
+MSG_FINAL_ACCESS="Access URL"
+MSG_FINAL_MAC_COMMANDS="Mac Commands:"
+MSG_FINAL_CMD_CLI="CLI entry point (passes all arguments)"
+MSG_FINAL_CMD_CONFIG="Edit configuration"
+MSG_FINAL_CMD_STATUS="Service status"
+MSG_FINAL_CMD_LOGS="Live logs"
+MSG_FINAL_CMD_RESTART="Restart service"
+MSG_FINAL_CMD_UPDATE="Update (app only, --sandbox rebuilds images)"
+MSG_FINAL_CMD_REBUILD="Rebuild sandbox images"
+MSG_FINAL_CMD_DOCTOR="Run diagnostics"
+MSG_FINAL_CMD_SHELL="Enter VM shell"
+MSG_FINAL_SANDBOX_TITLE="Sandbox containers (created on demand by Gateway):"
+MSG_FINAL_SANDBOX_COMMON="  - openclaw-sandbox-common   Code execution (no network)"
+MSG_FINAL_SANDBOX_BROWSER="  - openclaw-sandbox-browser  Browser automation"
+
+# --- refresh-mac-commands.sh ---
+MSG_REFRESH_START="🔄 Regenerating Mac convenience commands..."
+MSG_REFRESH_DONE="✅ Mac convenience commands updated!"
+MSG_REFRESH_LIST_HEADER="Generated commands:"
+MSG_REFRESH_CMD_CLI="  openclaw                CLI passthrough"
+MSG_REFRESH_CMD_STATUS="  openclaw-status         Service status"
+MSG_REFRESH_CMD_LOGS="  openclaw-logs           Live logs"
+MSG_REFRESH_CMD_RESTART="  openclaw-restart        Restart service"
+MSG_REFRESH_CMD_STARTSTOP="  openclaw-stop/start     Stop/start"
+MSG_REFRESH_CMD_SHELL="  openclaw-shell          Enter VM"
+MSG_REFRESH_CMD_CONFIG="  openclaw-config         Configuration"
+MSG_REFRESH_CMD_UPDATE="  openclaw-update         Update version"
+MSG_REFRESH_CMD_REBUILD="  openclaw-sandbox-rebuild Rebuild sandbox images"
+MSG_REFRESH_CMD_TELEGRAM="  openclaw-telegram       Telegram management"
+MSG_REFRESH_CMD_WHATSAPP="  openclaw-whatsapp       WhatsApp login"
+MSG_REFRESH_PATH_HINT="Make sure ~/bin is in PATH: export PATH=\"\$HOME/bin:\$PATH\""

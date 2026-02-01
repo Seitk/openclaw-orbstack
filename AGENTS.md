@@ -31,12 +31,18 @@ Mac ─┼───────────────────────�
 
 ```
 OpenClawOrb/
-├── openclaw-orbstack-setup.sh    # Main entry (573 lines, 8-step installer)
-├── README.md                     # User docs (Chinese)
+├── openclaw-orbstack-setup.sh    # Main entry (8-step installer, i18n)
+├── README.md                     # User docs (English)
 ├── AGENTS.md                     # This file
+├── lang/
+│   ├── en.sh                     # English language strings
+│   └── zh-CN.sh                  # Chinese language strings
 ├── templates/
 │   └── openclaw.json.example     # Config template (JSON5, 899 lines)
+├── scripts/
+│   └── refresh-mac-commands.sh   # Regenerate Mac commands (i18n)
 ├── docs/
+│   ├── README.zh-CN.md           # Chinese README
 │   ├── commands.md               # CLI reference (12 Mac + 150 official)
 │   ├── architecture.md           # System diagrams
 │   ├── configuration-guide.md    # Config guide (Chinese)
@@ -112,8 +118,9 @@ EOF
 - Dynamic edits: use `jq`
 
 ### Documentation
-- README/user-facing: Chinese
+- README.md: English, docs/README.zh-CN.md: Chinese
 - Code comments: English
+- User-facing script text: Use `$MSG_*` variables from `lang/*.sh` (never hardcode)
 
 ## Anti-Patterns (NEVER DO)
 
@@ -144,6 +151,7 @@ EOF
 |----------|---------|---------|
 | `OPENCLAW_VM_NAME` | VM name | `openclaw-vm` |
 | `OPENCLAW_PORT` | Gateway port | `18789` |
+| `OPENCLAW_LANG` | UI language (`en` or `zh-CN`) | Interactive prompt |
 | `OPENCLAW_DISABLE_BONJOUR` | Prevent mDNS conflicts | `1` (set in systemd) |
 
 ## Git Operations
@@ -157,9 +165,9 @@ git push https://aaajiao:$(gh auth token)@github.com/aaajiao/openclaw-orbstack.g
 
 No automated tests. Validation approach:
 ```bash
-bash -n openclaw-orbstack-setup.sh     # Syntax check
-shellcheck openclaw-orbstack-setup.sh  # Lint (if installed)
-bash -x openclaw-orbstack-setup.sh     # Debug trace
+bash -n openclaw-orbstack-setup.sh              # Syntax check
+shellcheck openclaw-orbstack-setup.sh           # Lint (if installed)
+OPENCLAW_LANG=en bash -x openclaw-orbstack-setup.sh  # Debug trace (skip language prompt)
 ```
 
 ## Troubleshooting Quick Reference

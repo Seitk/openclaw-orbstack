@@ -56,16 +56,17 @@ EOF
 
 ### Documentation
 
-- README files: Chinese (primary audience)
+- README.md: English
+- docs/README.zh-CN.md: Chinese
 - Code comments: English
-- Inline help in scripts: Chinese for user-facing
+- User-facing script text: Internationalized via `lang/zh-CN.sh` and `lang/en.sh` (use `$MSG_*` variables, never hardcode)
 
 ## Error Handling
 
 ```bash
-# Check command exists
+# Check command exists (use $MSG_* variables for user-facing text)
 if ! command -v orb &> /dev/null; then
-    err "未检测到 OrbStack"
+    err "$MSG_ERR_NO_ORBSTACK"
     exit 1
 fi
 
@@ -87,10 +88,11 @@ bash -n openclaw-orbstack-setup.sh
 # Run shellcheck (if installed)
 shellcheck openclaw-orbstack-setup.sh
 
-# Execute deployment (interactive)
-bash openclaw-orbstack-setup.sh
+# Execute deployment (skip language prompt with OPENCLAW_LANG)
+OPENCLAW_LANG=en bash openclaw-orbstack-setup.sh
 
 # With custom options
+OPENCLAW_LANG=en \
 OPENCLAW_EXTRA_MOUNTS="$HOME/.ssh:/home/node/.ssh:ro" \
 OPENCLAW_DOCKER_APT_PACKAGES="ffmpeg" \
 bash openclaw-orbstack-setup.sh
@@ -102,12 +104,12 @@ bash openclaw-orbstack-setup.sh
 # Dry run - syntax only
 bash -n openclaw-orbstack-setup.sh
 
-# Full test (creates real VM)
-bash openclaw-orbstack-setup.sh
+# Full test (creates real VM, use OPENCLAW_LANG to skip language prompt)
+OPENCLAW_LANG=en bash openclaw-orbstack-setup.sh
 
 # Clean slate test
 orb delete openclaw-vm  # Remove VM
-bash openclaw-orbstack-setup.sh  # Fresh install
+OPENCLAW_LANG=en bash openclaw-orbstack-setup.sh  # Fresh install
 ```
 
 ## Troubleshooting
@@ -125,7 +127,7 @@ bash openclaw-orbstack-setup.sh  # Fresh install
 
 ```bash
 # Verbose execution
-bash -x openclaw-orbstack-setup.sh
+OPENCLAW_LANG=en bash -x openclaw-orbstack-setup.sh
 
 # Check VM state
 orb -m openclaw-vm bash -c "docker compose -f ~/openclaw/docker-compose.yml config"
