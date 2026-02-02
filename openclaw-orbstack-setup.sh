@@ -274,43 +274,19 @@ ok "$MSG_OK_MEMORY_CREATED"
 # ============================================================================
 step 8 "$MSG_STEP_8"
 
-# --- Create systemd service ---
+# --- Enable user-level systemd service (created by openclaw onboard) ---
 info "$MSG_INFO_CREATING_SERVICE"
 
-VM_USER=$(vm_exec 'whoami')
-VM_HOME=$(vm_exec 'echo $HOME')
+# Enable lingering so user services start at boot without login
+vm_exec "sudo loginctl enable-linger \$(whoami)"
 
-vm_exec "sudo tee /etc/systemd/system/openclaw.service > /dev/null << 'SYSTEMD_EOF'
-[Unit]
-Description=OpenClaw Gateway
-After=network-online.target docker.service
-Wants=network-online.target
-Requires=docker.service
-
-[Service]
-Type=simple
-User=$VM_USER
-WorkingDirectory=$VM_HOME/openclaw
-ExecStart=/usr/bin/node $VM_HOME/openclaw/dist/entry.js gateway --port 18789
-Restart=always
-RestartSec=5
-KillMode=process
-Environment=NODE_ENV=production
-Environment=HOME=$VM_HOME
-Environment=OPENCLAW_DISABLE_BONJOUR=1
-Environment=CLAWDBOT_DISABLE_BONJOUR=1
-
-[Install]
-WantedBy=multi-user.target
-SYSTEMD_EOF"
-
-vm_exec "sudo systemctl daemon-reload"
-vm_exec "sudo systemctl enable openclaw"
-vm_exec "sudo systemctl start openclaw"
+# Enable and start the official user-level gateway service
+vm_exec "systemctl --user enable openclaw-gateway.service"
+vm_exec "openclaw gateway start"
 
 sleep 3
 
-if vm_exec "systemctl is-active openclaw" | grep -q "active"; then
+if vm_exec "openclaw gateway status 2>/dev/null | grep -q 'RPC probe.*ok'"; then
     ok "$MSG_OK_GATEWAY_STARTED"
 else
     warn "$MSG_WARN_GATEWAY_ISSUE"
@@ -326,27 +302,27 @@ LANG_EOF
 
 cat > ~/bin/openclaw-status << 'EOF'
 #!/bin/bash
-orb -m openclaw-vm bash -c "systemctl status openclaw"
+orb -m openclaw-vm bash -c "openclaw gateway status"
 EOF
 
 cat > ~/bin/openclaw-logs << 'EOF'
 #!/bin/bash
-orb -m openclaw-vm bash -c "journalctl -u openclaw -f"
+orb -m openclaw-vm bash -c "openclaw logs --follow"
 EOF
 
 cat > ~/bin/openclaw-restart << 'EOF'
 #!/bin/bash
-orb -m openclaw-vm bash -c "cd ~/openclaw && node dist/entry.js gateway restart"
+orb -m openclaw-vm bash -c "openclaw gateway restart"
 EOF
 
 cat > ~/bin/openclaw-stop << 'EOF'
 #!/bin/bash
-orb -m openclaw-vm bash -c "cd ~/openclaw && node dist/entry.js gateway stop"
+orb -m openclaw-vm bash -c "openclaw gateway stop"
 EOF
 
 cat > ~/bin/openclaw-start << 'EOF'
 #!/bin/bash
-orb -m openclaw-vm bash -c "cd ~/openclaw && node dist/entry.js gateway start"
+orb -m openclaw-vm bash -c "openclaw gateway start"
 EOF
 
 cat > ~/bin/openclaw-shell << 'EOF'
@@ -426,10 +402,44 @@ for arg in "\$@"; do
     esac
 done
 
+# Auto-detect stale system-level service and self-repair
+if grep -q "systemctl status openclaw" ~/bin/openclaw-status 2>/dev/null; then
+    echo "\$MSG_UPDATE_AUTO_UPGRADE"
+    # VM: migrate from system-level to user-level service
+    orb -m openclaw-vm bash -c "sudo systemctl stop openclaw 2>/dev/null || true"
+    orb -m openclaw-vm bash -c "sudo systemctl disable openclaw 2>/dev/null || true"
+    orb -m openclaw-vm bash -c "sudo rm -f /etc/systemd/system/openclaw.service && sudo systemctl daemon-reload"
+    orb -m openclaw-vm bash -c "sudo loginctl enable-linger \\\$(whoami)"
+    orb -m openclaw-vm bash -c "systemctl --user enable openclaw-gateway.service 2>/dev/null || true"
+    # Mac: fix stale commands
+    cat > ~/bin/openclaw-status << 'FIXEOF'
+#!/bin/bash
+orb -m openclaw-vm bash -c "openclaw gateway status"
+FIXEOF
+    cat > ~/bin/openclaw-logs << 'FIXEOF'
+#!/bin/bash
+orb -m openclaw-vm bash -c "openclaw logs --follow"
+FIXEOF
+    cat > ~/bin/openclaw-restart << 'FIXEOF'
+#!/bin/bash
+orb -m openclaw-vm bash -c "openclaw gateway restart"
+FIXEOF
+    cat > ~/bin/openclaw-stop << 'FIXEOF'
+#!/bin/bash
+orb -m openclaw-vm bash -c "openclaw gateway stop"
+FIXEOF
+    cat > ~/bin/openclaw-start << 'FIXEOF'
+#!/bin/bash
+orb -m openclaw-vm bash -c "openclaw gateway start"
+FIXEOF
+    chmod +x ~/bin/openclaw-status ~/bin/openclaw-logs ~/bin/openclaw-restart ~/bin/openclaw-stop ~/bin/openclaw-start
+    echo "\$MSG_UPDATE_AUTO_UPGRADE_DONE"
+fi
+
 echo "\$MSG_CMD_UPDATE_UPDATING"
 
 echo "\$MSG_CMD_UPDATE_STOPPING"
-orb -m openclaw-vm bash -c "sudo systemctl stop openclaw"
+orb -m openclaw-vm bash -c "openclaw gateway stop"
 
 echo "\$MSG_CMD_UPDATE_PULLING"
 orb -m openclaw-vm bash -c "cd ~/openclaw && git pull"
@@ -458,7 +468,7 @@ if [ "\$SANDBOX" = true ]; then
 fi
 
 echo "\$MSG_CMD_UPDATE_STARTING"
-orb -m openclaw-vm bash -c "sudo systemctl start openclaw"
+orb -m openclaw-vm bash -c "openclaw gateway start"
 
 echo "\$MSG_CMD_UPDATE_DONE"
 if [ "\$SANDBOX" = false ]; then
