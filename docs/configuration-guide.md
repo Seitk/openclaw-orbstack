@@ -103,7 +103,7 @@ OpenClaw 使用 **JSON5** 格式，支持：
 
 ## 配置模板
 
-完整配置模板位于 `templates/config.json.example`，包含所有可用选项和详细注释。
+完整配置模板位于 `templates/openclaw.json.example`，包含所有可用选项和详细注释。
 
 ### 快速配置示例
 
@@ -692,8 +692,8 @@ openclaw memory index
 | `ANTHROPIC_API_KEY` | Anthropic API Key |
 | `OPENAI_API_KEY` | OpenAI API Key |
 | `GOOGLE_API_KEY` | Google API Key |
-| `TELEGRAM_BOT_TOKEN` | Telegram Bot Token |
-| `DISCORD_BOT_TOKEN` | Discord Bot Token |
+| `TG_BOT_TOKEN` | Telegram Bot Token (沙箱内使用，不要用 `TELEGRAM_BOT_TOKEN`，该名被 Gateway 保留) |
+| `DISCORD_TOKEN` | Discord Bot Token (沙箱内使用，不要用 `DISCORD_BOT_TOKEN`，该名被 Gateway 保留) |
 | `OPENCLAW_STATE_DIR` | 状态目录 |
 
 ---

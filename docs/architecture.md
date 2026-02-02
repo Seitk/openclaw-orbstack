@@ -99,7 +99,7 @@
     │   (仅供沙箱容器使用)
     ▼
 步骤 4: 安装 Node.js
-    │   Node.js 20.x LTS + build-essential
+    │   Node.js 22.x LTS + build-essential
     ▼
 步骤 5: 克隆并构建 OpenClaw
     │   git clone + npm install + npm run build
@@ -113,9 +113,10 @@
     │   ./openclaw setup (交互式)
     │   - 配置 AI 提供商 API Key
     │   - 配置聊天频道
+    │   - 自动提取敏感信息到 ~/.openclaw/.env
     ▼
 步骤 8: 配置 systemd 和命令
-        - 创建 openclaw.service (自动启动)
+        - 创建 openclaw-gateway.service (user-level systemd)
         - 在 Mac 上创建 ~/bin/openclaw-* 命令
         - 合并沙箱配置
 ```
@@ -132,7 +133,8 @@
   └── ...
 
 ~/.openclaw/                   # 配置目录
-  ├── openclaw.json            # 主配置 (含沙箱设置)
+  ├── openclaw.json            # 主配置 (含沙箱设置, 用 ${VAR} 引用 .env)
+  ├── .env                     # 敏感信息 (API keys, tokens, Bonjour 设置)
   ├── credentials/             # API keys, tokens
   ├── memory/                  # Memory 索引 (<agentId>.sqlite)
   ├── agents/                  # Agent 数据 (sessions 等)
@@ -143,14 +145,12 @@
   └── sandboxes/               # Sandbox workspaces
 ```
 
-### systemd Service
+### systemd Service (user-level)
 
 ```
-/etc/systemd/system/openclaw.service
-  - ExecStart: node dist/entry.js gateway --port 18789
-  - Restart: always
-  - RestartSec: 5
-  - User: <vm-user>
+~/.config/systemd/user/openclaw-gateway.service
+  - 由 openclaw onboard 自动创建
+  - 通过 systemctl --user 管理
   - Environment:
     - NODE_ENV=production
     - OPENCLAW_DISABLE_BONJOUR=1    # 禁用 Bonjour 避免冲突

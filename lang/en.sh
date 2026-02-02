@@ -73,6 +73,8 @@ MSG_INFO_ONBOARD_API="  - AI model API Key (Anthropic / OpenAI / OpenRouter etc.
 MSG_INFO_ONBOARD_TOKEN="  - Telegram Bot Token (from @BotFather) or other platform credentials"
 MSG_PRESS_ENTER="Press Enter to continue..."
 MSG_OK_ONBOARD_DONE="Configuration wizard complete"
+MSG_INFO_EXTRACTING_ENV="Extracting secrets to .env file..."
+MSG_OK_ENV_EXTRACTED="Secrets extracted to ~/.openclaw/.env"
 MSG_INFO_CREATING_MEMORY="Creating memory index directory..."
 MSG_OK_MEMORY_CREATED="Memory index directory created"
 
@@ -167,7 +169,7 @@ MSG_FINAL_CMD_REBUILD="Rebuild sandbox images"
 MSG_FINAL_CMD_DOCTOR="Run diagnostics"
 MSG_FINAL_CMD_SHELL="Enter VM shell"
 MSG_FINAL_SANDBOX_TITLE="Sandbox containers (created on demand by Gateway):"
-MSG_FINAL_SANDBOX_COMMON="  - openclaw-sandbox-common   Code execution (no network)"
+MSG_FINAL_SANDBOX_COMMON="  - openclaw-sandbox-common   Code execution (bridge network)"
 MSG_FINAL_SANDBOX_BROWSER="  - openclaw-sandbox-browser  Browser automation"
 
 # --- refresh-mac-commands.sh ---
@@ -209,3 +211,4 @@ MSG_REPAIR_FULL_REFRESH_HINT="To regenerate all Mac commands: bash scripts/refre
 # --- openclaw-update auto-repair ---
 MSG_UPDATE_AUTO_UPGRADE="🔧 Detected outdated service configuration, auto-repairing..."
 MSG_UPDATE_AUTO_UPGRADE_DONE="✓ Service configuration repaired. Continuing update..."
+MSG_UPDATE_ENV_CREATED="✓ Created ~/.openclaw/.env with Bonjour settings"

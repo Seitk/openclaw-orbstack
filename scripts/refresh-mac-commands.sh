@@ -189,6 +189,12 @@ FIXEOF
     echo "\$MSG_UPDATE_AUTO_UPGRADE_DONE"
 fi
 
+# Ensure .env exists with at least Bonjour vars
+if ! orb -m openclaw-vm bash -c 'test -f ~/.openclaw/.env' 2>/dev/null; then
+    orb -m openclaw-vm bash -c 'mkdir -p ~/.openclaw && printf "# OpenClaw Environment Variables\nOPENCLAW_DISABLE_BONJOUR=1\nCLAWDBOT_DISABLE_BONJOUR=1\n" > ~/.openclaw/.env && chmod 600 ~/.openclaw/.env'
+    echo "  \$MSG_UPDATE_ENV_CREATED"
+fi
+
 echo "\$MSG_CMD_UPDATE_UPDATING"
 
 echo "\$MSG_CMD_UPDATE_STOPPING"

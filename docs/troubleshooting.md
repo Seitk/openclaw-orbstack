@@ -36,57 +36,34 @@ Gateway 使用 `ciao` 库注册 Bonjour/mDNS 服务时，用了系统的 hostnam
 bash openclaw-orbstack-setup.sh
 ```
 
-**方法 2：手动修改 systemd 服务**
+**方法 2：手动添加环境变量**
 
 ```bash
 # 进入 VM
 openclaw-shell
 
-# 编辑服务文件
-sudo nano /etc/systemd/system/openclaw.service
+# 编辑 .env 文件（Gateway 启动时会读取）
+nano ~/.openclaw/.env
 
-# 在 [Service] 段落添加以下两行：
-# Environment=OPENCLAW_DISABLE_BONJOUR=1
-# Environment=CLAWDBOT_DISABLE_BONJOUR=1
+# 添加以下两行：
+# OPENCLAW_DISABLE_BONJOUR=1
+# CLAWDBOT_DISABLE_BONJOUR=1
 
-# 重载并重启
-sudo systemctl daemon-reload
-sudo pkill -9 openclaw
-sudo systemctl start openclaw
+# 重启 Gateway
+openclaw gateway restart
 ```
 
-完整的服务文件示例：
-
-```ini
-[Unit]
-Description=OpenClaw Gateway
-After=network-online.target docker.service
-Wants=network-online.target
-Requires=docker.service
-
-[Service]
-Type=simple
-User=<your-username>
-WorkingDirectory=/home/<your-username>/openclaw
-ExecStart=/usr/bin/node /home/<your-username>/openclaw/dist/entry.js gateway --port 18789
-Restart=always
-RestartSec=5
-KillMode=process
-Environment=NODE_ENV=production
-Environment=HOME=/home/<your-username>
-Environment=OPENCLAW_DISABLE_BONJOUR=1
-Environment=CLAWDBOT_DISABLE_BONJOUR=1
-
-[Install]
-WantedBy=multi-user.target
-```
+> **注意**: 当前版本使用 user-level systemd service (`openclaw-gateway.service`)，
+> 由 `openclaw onboard` 自动创建，通过 `systemctl --user` 管理。
+> 不再使用旧版的 `/etc/systemd/system/openclaw.service`。
 
 **验证修复**
 
 检查环境变量是否生效：
 
 ```bash
-orb -m openclaw-vm bash -c 'cat /proc/$(pgrep -f openclaw-gateway | head -1)/environ | tr "\0" "\n" | grep -i bonjour'
+openclaw-shell
+env | grep -i BONJOUR
 ```
 
 应该看到：
@@ -131,7 +108,9 @@ Gateway failed to start: gateway already running (pid XXX); lock timeout after 5
 orb -m openclaw-vm bash -c 'ss -tlnp | grep 18789'
 
 # 如果是旧的 gateway 进程，强制停止并重启
-orb -m openclaw-vm bash -c 'sudo systemctl stop openclaw; sudo pkill -9 openclaw; sudo pkill -9 node; sleep 2; sudo systemctl start openclaw'
+openclaw-stop
+orb -m openclaw-vm bash -c 'sudo pkill -9 -f "openclaw"; sudo pkill -9 node; sleep 2'
+openclaw-start
 ```
 
 如果使用 Web UI 时看到这个错误，通常可以忽略 - 这只是说明 systemd 管理的 Gateway 已经在运行。
@@ -320,8 +299,8 @@ orb -m openclaw-vm bash -c 'ps aux | grep openclaw'
 # 查看端口占用
 orb -m openclaw-vm bash -c 'ss -tlnp | grep 18789'
 
-# 查看 systemd 服务配置
-orb -m openclaw-vm bash -c 'systemctl show openclaw --property=Environment'
+# 查看 systemd 服务状态
+orb -m openclaw-vm bash -c 'systemctl --user status openclaw-gateway'
 ```
 
 ---
@@ -337,7 +316,9 @@ openclaw-restart
 ### 强制重启（杀死所有进程）
 
 ```bash
-orb -m openclaw-vm bash -c 'sudo systemctl stop openclaw; sudo pkill -9 openclaw; sudo pkill -9 node; sleep 2; sudo systemctl start openclaw'
+openclaw-stop
+orb -m openclaw-vm bash -c 'sudo pkill -9 -f "openclaw"; sudo pkill -9 node; sleep 2'
+openclaw-start
 ```
 
 ---

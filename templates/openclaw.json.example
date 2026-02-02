@@ -245,10 +245,11 @@
             LANG: "C.UTF-8",
             // OPENCLAW_GATEWAY_TOKEN 由 Gateway 自动注入，通常不需要手动配置
             // 添加你需要在沙箱内使用的 API Key:
-            // OPENAI_API_KEY: "sk-xxx",
-            // ANTHROPIC_API_KEY: "sk-ant-xxx",
-            // GOOGLE_API_KEY: "AIzaSyxxx",
-            // TG_BOT_TOKEN: "123456:ABC..."  // 用 TG_BOT_TOKEN 而非 TELEGRAM_BOT_TOKEN
+            // 可以用 ${VAR} 引用 .env 文件中的变量，也可以直接填值
+            // OPENAI_API_KEY: "${OPENAI_API_KEY}",
+            // ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY}",
+            // GOOGLE_API_KEY: "${GOOGLE_API_KEY}",
+            // TG_BOT_TOKEN: "${TG_BOT_TOKEN}"  // 用 TG_BOT_TOKEN 而非 TELEGRAM_BOT_TOKEN
           },
           // 资源限制
           pidsLimit: 256,        // 最大进程数
@@ -431,6 +432,8 @@
       mediaMaxMb: 5,
       
       // 自定义命令
+      // 注意: 不要重复内置命令 (new, status, stop, model, usage, think, subagents 等)
+      // 内置命令由 Gateway 自动注册，重复声明会导致启动报错
       customCommands: [
         // { command: "backup", description: "Git 备份" },
         // { command: "image", description: "生成图片" }
@@ -788,7 +791,7 @@
   // --------------------------------------------------------------------------
   logging: {
     level: "info",        // "debug" | "info" | "warn" | "error"
-    file: "/tmp/openclaw/openclaw.log",
+    file: "/tmp/openclaw/openclaw.log",  // 实际文件名带日期: openclaw-YYYY-MM-DD.log
     consoleLevel: "info",
     consoleStyle: "pretty",  // "pretty" | "compact" | "json"
     redactSensitive: "tools"  // "off" | "tools"

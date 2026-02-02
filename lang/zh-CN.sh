@@ -73,6 +73,8 @@ MSG_INFO_ONBOARD_API="  - AI 模型 API Key（支持 Anthropic / OpenAI / OpenRo
 MSG_INFO_ONBOARD_TOKEN="  - Telegram Bot Token (从 @BotFather 获取) 或其他平台凭据"
 MSG_PRESS_ENTER="按 Enter 继续..."
 MSG_OK_ONBOARD_DONE="配置向导完成"
+MSG_INFO_EXTRACTING_ENV="提取敏感信息到 .env 文件..."
+MSG_OK_ENV_EXTRACTED="敏感信息已提取到 ~/.openclaw/.env"
 MSG_INFO_CREATING_MEMORY="创建 memory 索引目录..."
 MSG_OK_MEMORY_CREATED="memory 索引目录已创建"
 
@@ -167,7 +169,7 @@ MSG_FINAL_CMD_REBUILD="重建沙箱镜像"
 MSG_FINAL_CMD_DOCTOR="运行诊断"
 MSG_FINAL_CMD_SHELL="进入 VM"
 MSG_FINAL_SANDBOX_TITLE="沙箱容器 (由 Gateway 按需创建):"
-MSG_FINAL_SANDBOX_COMMON="  - openclaw-sandbox-common   代码执行 (无网络)"
+MSG_FINAL_SANDBOX_COMMON="  - openclaw-sandbox-common   代码执行 (bridge 网络)"
 MSG_FINAL_SANDBOX_BROWSER="  - openclaw-sandbox-browser  浏览器自动化"
 
 # --- refresh-mac-commands.sh ---
@@ -209,3 +211,4 @@ MSG_REPAIR_FULL_REFRESH_HINT="如需重新生成所有 Mac 命令: bash scripts/
 # --- openclaw-update 自动修复 ---
 MSG_UPDATE_AUTO_UPGRADE="🔧 检测到旧版服务配置，正在自动修复..."
 MSG_UPDATE_AUTO_UPGRADE_DONE="✓ 服务配置已修复，继续更新..."
+MSG_UPDATE_ENV_CREATED="✓ 已创建 ~/.openclaw/.env（Bonjour 配置）"

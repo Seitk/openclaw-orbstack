@@ -54,7 +54,7 @@ openclaw-whatsapp                      # 扫码登录
 
 | 命令 | 功能 |
 |------|------|
-| `openclaw-status` | 查看 Gateway 服务状态 (systemctl status) |
+| `openclaw-status` | 查看 Gateway 服务状态 (openclaw gateway status) |
 | `openclaw-logs` | 实时日志 (journalctl -f) |
 | `openclaw-restart` | 重启服务 |
 | `openclaw-stop` | 停止服务 |
@@ -474,15 +474,17 @@ orb -m openclaw-vm bash -c 'ss -tlnp | grep 18789'
 # 查看进程环境变量
 orb -m openclaw-vm bash -c 'cat /proc/$(pgrep -f openclaw-gateway | head -1)/environ | tr "\0" "\n" | grep -i bonjour'
 
-# 查看 systemd 服务配置
-orb -m openclaw-vm bash -c 'systemctl show openclaw --property=Environment'
+# 查看 systemd 服务状态
+orb -m openclaw-vm bash -c 'systemctl --user status openclaw-gateway'
 ```
 
 ### 强制重启服务
 
 ```bash
 # 杀死所有进程并重启
-orb -m openclaw-vm bash -c 'sudo systemctl stop openclaw; sudo pkill -9 openclaw; sudo pkill -9 node; sleep 2; sudo systemctl start openclaw'
+openclaw-stop
+orb -m openclaw-vm bash -c 'sudo pkill -9 -f "openclaw"; sudo pkill -9 node; sleep 2'
+openclaw-start
 ```
 
 详细故障排查指南见 [troubleshooting.md](troubleshooting.md)

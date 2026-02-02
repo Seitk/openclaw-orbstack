@@ -272,6 +272,127 @@ orb -m "$VM_NAME" openclaw onboard
 
 ok "$MSG_OK_ONBOARD_DONE"
 
+# --- Extract secrets from config into .env ---
+info "$MSG_INFO_EXTRACTING_ENV"
+
+vm_exec 'python3 << "PYEOF"
+import json, os, re
+
+config_path = os.path.expanduser("~/.openclaw/openclaw.json")
+env_path = os.path.expanduser("~/.openclaw/.env")
+
+if not os.path.exists(config_path):
+    print("config not found, skipping .env extraction")
+    exit(0)
+
+with open(config_path, "r") as f:
+    config = json.load(f)
+
+# --- Path-to-env-var mapping for known sensitive fields ---
+SENSITIVE_PATHS = [
+    ("channels.telegram.botToken",                         "TG_BOT_TOKEN"),
+    ("channels.discord.token",                             "DISCORD_TOKEN"),
+    ("channels.slack.botToken",                            "SLACK_BOT_TOKEN"),
+    ("channels.slack.appToken",                            "SLACK_APP_TOKEN"),
+    ("gateway.auth.token",                                 "GATEWAY_AUTH_TOKEN"),
+    ("agents.defaults.sandbox.docker.env.OPENAI_API_KEY",  "OPENAI_API_KEY"),
+    ("agents.defaults.sandbox.docker.env.GOOGLE_API_KEY",  "GOOGLE_API_KEY"),
+    ("agents.defaults.sandbox.docker.env.ANTHROPIC_API_KEY","ANTHROPIC_API_KEY"),
+    ("agents.defaults.sandbox.docker.env.TG_BOT_TOKEN",   "TG_BOT_TOKEN"),
+]
+
+def get_nested(obj, path):
+    for key in path.split("."):
+        if isinstance(obj, dict) and key in obj:
+            obj = obj[key]
+        else:
+            return None
+    return obj
+
+def set_nested(obj, path, value):
+    keys = path.split(".")
+    for key in keys[:-1]:
+        if key not in obj or not isinstance(obj[key], dict):
+            return
+        obj = obj[key]
+    if keys[-1] in obj:
+        obj[keys[-1]] = value
+
+is_ref = lambda v: isinstance(v, str) and re.match(r"^\$\{.+\}$", v)
+
+# Phase 1: Collect secrets from known paths
+env_vars = {}     # VAR_NAME -> value
+val_to_var = {}   # value -> VAR_NAME (for dedup)
+
+for path, var_name in SENSITIVE_PATHS:
+    val = get_nested(config, path)
+    if val and isinstance(val, str) and not is_ref(val):
+        if var_name not in env_vars:
+            env_vars[var_name] = val
+            val_to_var[val] = var_name
+
+# Phase 2: Scan skills.entries.*.apiKey dynamically
+skills = get_nested(config, "skills.entries")
+if isinstance(skills, dict):
+    for skill_name, skill_cfg in skills.items():
+        if isinstance(skill_cfg, dict) and "apiKey" in skill_cfg:
+            api_key = skill_cfg["apiKey"]
+            if api_key and isinstance(api_key, str) and not is_ref(api_key):
+                if api_key in val_to_var:
+                    # Reuse existing var name (e.g. same key as OPENAI_API_KEY)
+                    var_name = val_to_var[api_key]
+                else:
+                    var_name = skill_name.upper().replace("-", "_") + "_API_KEY"
+                    env_vars[var_name] = api_key
+                    val_to_var[api_key] = var_name
+
+if not env_vars:
+    print("no secrets found, writing minimal .env")
+
+# Phase 3: Write .env (merge with existing if present)
+existing = {}
+if os.path.exists(env_path):
+    with open(env_path, "r") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                existing[k.strip()] = v.strip()
+
+existing.update(env_vars)
+existing["OPENCLAW_DISABLE_BONJOUR"] = "1"
+existing["CLAWDBOT_DISABLE_BONJOUR"] = "1"
+
+with open(env_path, "w") as f:
+    f.write("# OpenClaw Environment Variables (auto-generated)\n")
+    f.write("# Do not commit this file to version control\n\n")
+    for k, v in existing.items():
+        f.write(f"{k}={v}\n")
+
+os.chmod(env_path, 0o600)
+
+# Phase 4: Replace inline secrets with ${VAR} references in config
+for path, var_name in SENSITIVE_PATHS:
+    val = get_nested(config, path)
+    if val and isinstance(val, str) and not is_ref(val) and var_name in env_vars:
+        set_nested(config, path, "${" + var_name + "}")
+
+if isinstance(skills, dict):
+    for skill_name, skill_cfg in skills.items():
+        if isinstance(skill_cfg, dict) and "apiKey" in skill_cfg:
+            api_key = skill_cfg["apiKey"]
+            if api_key and isinstance(api_key, str) and not is_ref(api_key):
+                if api_key in val_to_var:
+                    skill_cfg["apiKey"] = "${" + val_to_var[api_key] + "}"
+
+with open(config_path, "w") as f:
+    json.dump(config, f, indent=2)
+
+print(f"extracted {len(env_vars)} secret(s) to .env")
+PYEOF'
+
+ok "$MSG_OK_ENV_EXTRACTED"
+
 info "$MSG_INFO_CREATING_MEMORY"
 vm_exec "mkdir -p ~/.openclaw/memory && chmod 755 ~/.openclaw/memory"
 ok "$MSG_OK_MEMORY_CREATED"
@@ -441,6 +562,12 @@ orb -m openclaw-vm bash -c "openclaw gateway start"
 FIXEOF
     chmod +x ~/bin/openclaw-status ~/bin/openclaw-logs ~/bin/openclaw-restart ~/bin/openclaw-stop ~/bin/openclaw-start
     echo "\$MSG_UPDATE_AUTO_UPGRADE_DONE"
+fi
+
+# Ensure .env exists with at least Bonjour vars
+if ! orb -m openclaw-vm bash -c 'test -f ~/.openclaw/.env' 2>/dev/null; then
+    orb -m openclaw-vm bash -c 'mkdir -p ~/.openclaw && printf "# OpenClaw Environment Variables\nOPENCLAW_DISABLE_BONJOUR=1\nCLAWDBOT_DISABLE_BONJOUR=1\n" > ~/.openclaw/.env && chmod 600 ~/.openclaw/.env'
+    echo "  \$MSG_UPDATE_ENV_CREATED"
 fi
 
 echo "\$MSG_CMD_UPDATE_UPDATING"
@@ -616,7 +743,7 @@ vm_exec 'cat > /tmp/sandbox-config.json << '\''SANDBOX_EOF'\''
     "sandbox": {
       "tools": {
         "allow": ["group:runtime", "group:fs", "group:sessions", "group:ui"],
-        "deny": ["canvas", "nodes", "cron", "gateway", "telegram", "whatsapp", "discord", "googlechat", "slack", "signal", "imessage"]
+        "deny": ["canvas", "nodes", "gateway", "telegram", "whatsapp", "discord", "googlechat", "slack", "signal", "imessage"]
       }
     }
   },

@@ -37,7 +37,9 @@ Gateway runs directly on VM. Docker containers are the only isolation protecting
 | Gateway port | `18789` |
 | Web console | `http://openclaw-vm.orb.local:18789` |
 | Config (in VM) | `~/.openclaw/openclaw.json` |
+| Secrets (in VM) | `~/.openclaw/.env` |
 | Node.js | 22.x LTS |
+| Service | `systemctl --user` (`openclaw-gateway.service`) |
 | Gateway cmd | `node dist/entry.js gateway --port 18789` |
 
 ## Build / Test / Run
@@ -99,6 +101,15 @@ Three independent scopes — they do NOT inherit from each other:
 | Gateway | Top-level `env: {}` | Gateway process only |
 | Code sandbox | `sandbox.docker.env` | Code execution container |
 | Browser sandbox | `sandbox.browser.env` | Browser container |
+
+## Secrets Management (.env)
+
+- `~/.openclaw/.env` stores sensitive values (API keys, bot tokens, Bonjour settings)
+- Generated **automatically** during Step 7 (after `openclaw onboard`) by a Python3 extraction script
+- Config file (`openclaw.json`) references secrets via `${VAR}` syntax (e.g., `"token": "${TG_BOT_TOKEN}"`)
+- Gateway reads `.env` at startup via systemd `EnvironmentFile`
+- `openclaw-update` only creates a minimal `.env` (Bonjour vars) if the file is missing — it does NOT re-extract secrets
+- File permissions: `chmod 600` (owner-only read/write)
 
 ## Git
 
