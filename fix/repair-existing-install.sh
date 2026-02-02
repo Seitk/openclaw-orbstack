@@ -13,7 +13,10 @@
 set -e
 
 # --- Language Selection ---
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Resolve project root reliably (works with bash script.sh, ./script.sh, absolute path, etc.)
+_SELF="${BASH_SOURCE[0]:-$0}"
+_SELF_DIR="$(cd "$(dirname "$_SELF")" && pwd)"
+SCRIPT_DIR="$(cd "$_SELF_DIR/.." && pwd)"
 
 select_language() {
     if [ -n "$OPENCLAW_LANG" ]; then
@@ -23,10 +26,11 @@ select_language() {
 
     # Check saved preference
     if [ -f "$HOME/bin/.openclaw-lang" ]; then
+        local _saved_lang=""
         # shellcheck source=/dev/null
-        source "$HOME/bin/.openclaw-lang"
-        if [ -n "$OPENCLAW_LANG" ]; then
-            echo "$OPENCLAW_LANG"
+        _saved_lang=$(sed -n 's/^OPENCLAW_LANG=//p' "$HOME/bin/.openclaw-lang" 2>/dev/null || true)
+        if [ -n "$_saved_lang" ]; then
+            echo "$_saved_lang"
             return
         fi
     fi
@@ -54,8 +58,14 @@ if [ -f "$LANG_FILE" ]; then
     # shellcheck source=../lang/en.sh
     source "$LANG_FILE"
 else
-    echo "Warning: Language file not found, falling back to English"
-    source "$SCRIPT_DIR/lang/en.sh"
+    echo "Warning: Language file $LANG_FILE not found (SCRIPT_DIR=$SCRIPT_DIR), falling back to English" >&2
+    if [ -f "$SCRIPT_DIR/lang/en.sh" ]; then
+        source "$SCRIPT_DIR/lang/en.sh"
+    else
+        echo "Error: No language files found. Make sure you run this from the project directory." >&2
+        echo "  cd openclaw-orbstack && bash fix/repair-existing-install.sh" >&2
+        exit 1
+    fi
 fi
 
 VM_NAME="${OPENCLAW_VM_NAME:-openclaw-vm}"

@@ -39,7 +39,9 @@
 set -e
 
 # --- Language Selection ---
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Resolve project root reliably
+_SELF="${BASH_SOURCE[0]:-$0}"
+SCRIPT_DIR="$(cd "$(dirname "$_SELF")" && pwd)"
 
 select_language() {
     # If explicitly set via env var, skip interactive prompt

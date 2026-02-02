@@ -8,7 +8,10 @@ set -e
 #   cd openclaw-orbstack && git pull && bash scripts/refresh-mac-commands.sh
 
 # --- Language Selection ---
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Resolve project root reliably (works with bash script.sh, ./script.sh, absolute path, etc.)
+_SELF="${BASH_SOURCE[0]:-$0}"
+_SELF_DIR="$(cd "$(dirname "$_SELF")" && pwd)"
+SCRIPT_DIR="$(cd "$_SELF_DIR/.." && pwd)"
 
 select_language() {
     # If explicitly set via env var, skip interactive prompt
