@@ -111,6 +111,15 @@ Three independent scopes — they do NOT inherit from each other:
 - `openclaw-update` only creates a minimal `.env` (Bonjour vars) if the file is missing — it does NOT re-extract secrets
 - File permissions: `chmod 600` (owner-only read/write)
 
+## Reference Docs
+
+| Topic | URL |
+|-------|-----|
+| OpenCode Zen models | https://opencode.ai/docs/zen/ |
+| OpenClaw config | https://docs.openclaw.ai/gateway/configuration |
+| OpenClaw model providers | https://docs.openclaw.ai/concepts/model-providers |
+| OpenClaw Moonshot provider | https://docs.openclaw.ai/providers/moonshot |
+
 ## Git
 
 ```bash
