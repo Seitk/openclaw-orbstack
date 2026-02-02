@@ -48,18 +48,18 @@ select_language() {
         return
     fi
 
-    echo ""
-    echo "Choose language / 选择语言:"
-    echo ""
-    echo "  1) English"
-    echo "  2) 中文"
-    echo ""
+    echo "" >&2
+    echo "Choose language / 选择语言:" >&2
+    echo "" >&2
+    echo "  1) English" >&2
+    echo "  2) 中文" >&2
+    echo "" >&2
     while true; do
         read -rp "Enter 1 or 2 / 输入 1 或 2: " choice
         case "$choice" in
             1) echo "en"; return ;;
             2) echo "zh-CN"; return ;;
-            *) echo "  Invalid choice / 无效选择, please enter 1 or 2 / 请输入 1 或 2" ;;
+            *) echo "  Invalid choice / 无效选择, please enter 1 or 2 / 请输入 1 或 2" >&2 ;;
         esac
     done
 }
