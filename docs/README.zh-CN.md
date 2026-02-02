@@ -133,21 +133,18 @@ openclaw-shell         # 进入 VM 排查
 
 ### 已安装用户升级
 
-如果你在服务修复之前安装过，运行修复脚本从系统级服务迁移到用户级服务：
-
 ```bash
-cd openclaw-orbstack && git pull
-bash fix/repair-existing-install.sh
+openclaw-update
 ```
 
-或者直接运行 `openclaw-update`，会自动检测并修复旧版配置。
+会自动检测并修复旧版配置（如从系统级服务迁移到用户级服务）。
 
 ### 常见问题速查
 
 | 问题 | 解决方案 |
 |------|----------|
 | Bonjour hostname conflict 警告 | 重新运行部署脚本或手动添加环境变量 |
-| Port 18789 already in use | 在 VM 内运行 `bash fix/openclaw-fix.sh`，或在 Mac 上运行 `bash fix/repair-existing-install.sh` |
+| Port 18789 already in use | `openclaw-restart` 或 `openclaw-update` |
 | Memory 目录错误 | `mkdir -p ~/.openclaw/memory` |
 | Memory search 无法使用 | 在 agent auth-profiles.json 中添加 OpenAI/Google key |
 | Mac 端命令过旧 | `cd openclaw-orbstack && git pull && bash scripts/refresh-mac-commands.sh` |
