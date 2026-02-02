@@ -1,6 +1,6 @@
 # OpenClawOrb - Agent Instructions
 
-**Generated:** 2026-01-30 | **Commit:** ff012af | **Branch:** main
+**Version:** v2026.2.1 | **Branch:** main
 
 OpenClaw OrbStack deployment toolkit. One-click OpenClaw chatbot deployment on macOS via OrbStack VM.
 

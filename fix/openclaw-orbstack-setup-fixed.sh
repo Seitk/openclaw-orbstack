@@ -39,9 +39,7 @@
 set -e
 
 # --- Language Selection ---
-# Resolve project root reliably
-_SELF="${BASH_SOURCE[0]:-$0}"
-SCRIPT_DIR="$(cd "$(dirname "$_SELF")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 select_language() {
     # If explicitly set via env var, skip interactive prompt
@@ -50,18 +48,18 @@ select_language() {
         return
     fi
 
-    echo "" >&2
-    echo "Choose language / 选择语言:" >&2
-    echo "" >&2
-    echo "  1) English" >&2
-    echo "  2) 中文" >&2
-    echo "" >&2
+    echo ""
+    echo "Choose language / 选择语言:"
+    echo ""
+    echo "  1) English"
+    echo "  2) 中文"
+    echo ""
     while true; do
         read -rp "Enter 1 or 2 / 输入 1 或 2: " choice
         case "$choice" in
             1) echo "en"; return ;;
             2) echo "zh-CN"; return ;;
-            *) echo "  Invalid choice / 无效选择, please enter 1 or 2 / 请输入 1 或 2" >&2 ;;
+            *) echo "  Invalid choice / 无效选择, please enter 1 or 2 / 请输入 1 或 2" ;;
         esac
     done
 }
@@ -196,7 +194,7 @@ fi
 # ============================================================================
 step 5 "$MSG_STEP_5"
 
-OPENCLAW_VERSION=$(cat "$SCRIPT_DIR/VERSION")
+OPENCLAW_VERSION=$(cat "$SCRIPT_DIR/../VERSION" 2>/dev/null || cat "$SCRIPT_DIR/VERSION" 2>/dev/null || echo "")
 
 if vm_exec "test -d ~/openclaw"; then
     info "$MSG_INFO_REPO_EXISTS"
@@ -206,8 +204,10 @@ else
     vm_exec "git clone https://github.com/openclaw/openclaw.git ~/openclaw"
 fi
 
-info "Checking out $OPENCLAW_VERSION ..."
-vm_exec "cd ~/openclaw && git checkout '$OPENCLAW_VERSION'"
+if [ -n "$OPENCLAW_VERSION" ]; then
+    info "Checking out $OPENCLAW_VERSION ..."
+    vm_exec "cd ~/openclaw && git checkout '$OPENCLAW_VERSION'"
+fi
 
 info "$MSG_INFO_NPM_INSTALL"
 vm_exec "cd ~/openclaw && npm install"
@@ -408,40 +408,6 @@ for arg in "\$@"; do
             ;;
     esac
 done
-
-# Auto-detect stale system-level service and self-repair
-if grep -q "systemctl status openclaw" ~/bin/openclaw-status 2>/dev/null; then
-    echo "\$MSG_UPDATE_AUTO_UPGRADE"
-    # VM: migrate from system-level to user-level service
-    orb -m openclaw-vm bash -c "sudo systemctl stop openclaw 2>/dev/null || true"
-    orb -m openclaw-vm bash -c "sudo systemctl disable openclaw 2>/dev/null || true"
-    orb -m openclaw-vm bash -c "sudo rm -f /etc/systemd/system/openclaw.service && sudo systemctl daemon-reload"
-    orb -m openclaw-vm bash -c "sudo loginctl enable-linger \\\$(whoami)"
-    orb -m openclaw-vm bash -c "systemctl --user enable openclaw-gateway.service 2>/dev/null || true"
-    # Mac: fix stale commands
-    cat > ~/bin/openclaw-status << 'FIXEOF'
-#!/bin/bash
-orb -m openclaw-vm bash -c "openclaw gateway status"
-FIXEOF
-    cat > ~/bin/openclaw-logs << 'FIXEOF'
-#!/bin/bash
-orb -m openclaw-vm bash -c "openclaw logs --follow"
-FIXEOF
-    cat > ~/bin/openclaw-restart << 'FIXEOF'
-#!/bin/bash
-orb -m openclaw-vm bash -c "openclaw gateway restart"
-FIXEOF
-    cat > ~/bin/openclaw-stop << 'FIXEOF'
-#!/bin/bash
-orb -m openclaw-vm bash -c "openclaw gateway stop"
-FIXEOF
-    cat > ~/bin/openclaw-start << 'FIXEOF'
-#!/bin/bash
-orb -m openclaw-vm bash -c "openclaw gateway start"
-FIXEOF
-    chmod +x ~/bin/openclaw-status ~/bin/openclaw-logs ~/bin/openclaw-restart ~/bin/openclaw-stop ~/bin/openclaw-start
-    echo "\$MSG_UPDATE_AUTO_UPGRADE_DONE"
-fi
 
 echo "\$MSG_CMD_UPDATE_UPDATING"
 
