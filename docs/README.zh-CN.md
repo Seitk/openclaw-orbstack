@@ -43,8 +43,8 @@ Mac ─┼───────────────────────�
 ## 安装
 
 ```bash
-git clone https://github.com/nicekwell/MoltbotOrb.git
-cd MoltbotOrb
+git clone https://github.com/aaajiao/openclaw-orbstack.git
+cd openclaw-orbstack
 bash openclaw-orbstack-setup.sh
 ```
 
@@ -136,7 +136,7 @@ openclaw-shell         # 进入 VM 排查
 如果你在服务修复之前安装过，运行修复脚本从系统级服务迁移到用户级服务：
 
 ```bash
-cd MoltbotOrb && git pull
+cd openclaw-orbstack && git pull
 bash fix/repair-existing-install.sh
 ```
 
@@ -150,7 +150,7 @@ bash fix/repair-existing-install.sh
 | Port 18789 already in use | 在 VM 内运行 `bash fix/openclaw-fix.sh`，或在 Mac 上运行 `bash fix/repair-existing-install.sh` |
 | Memory 目录错误 | `mkdir -p ~/.openclaw/memory` |
 | Memory search 无法使用 | 在 agent auth-profiles.json 中添加 OpenAI/Google key |
-| Mac 端命令过旧 | `cd MoltbotOrb && git pull && bash scripts/refresh-mac-commands.sh` |
+| Mac 端命令过旧 | `cd openclaw-orbstack && git pull && bash scripts/refresh-mac-commands.sh` |
 
 ### Memory 目录问题
 

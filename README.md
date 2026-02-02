@@ -43,8 +43,8 @@ Mac ─┼───────────────────────�
 ## Installation
 
 ```bash
-git clone https://github.com/nicekwell/MoltbotOrb.git
-cd MoltbotOrb
+git clone https://github.com/aaajiao/openclaw-orbstack.git
+cd openclaw-orbstack
 bash openclaw-orbstack-setup.sh
 ```
 
@@ -136,7 +136,7 @@ Full troubleshooting guide: [docs/troubleshooting.md](docs/troubleshooting.md)
 If you installed before the service fix, run the repair script to migrate from system-level to user-level service:
 
 ```bash
-cd MoltbotOrb && git pull
+cd openclaw-orbstack && git pull
 bash fix/repair-existing-install.sh
 ```
 
@@ -150,7 +150,7 @@ Or simply run `openclaw-update` — it auto-detects and repairs outdated configu
 | Port 18789 in use | `bash fix/openclaw-fix.sh` (inside VM) or `bash fix/repair-existing-install.sh` (from Mac) |
 | Memory directory error | `mkdir -p ~/.openclaw/memory` |
 | Memory search not working | Add OpenAI/Google key to agent auth-profiles.json |
-| Mac commands outdated | `cd MoltbotOrb && git pull && bash scripts/refresh-mac-commands.sh` |
+| Mac commands outdated | `cd openclaw-orbstack && git pull && bash scripts/refresh-mac-commands.sh` |
 
 ## Documentation
 

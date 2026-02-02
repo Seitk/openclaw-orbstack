@@ -1,5 +1,5 @@
 #!/bin/bash
-# repair-existing-install.sh - Unified repair for existing MoltbotOrb installations
+# repair-existing-install.sh - Unified repair for existing openclaw-orbstack installations
 # Fixes both VM-side (systemd service conflict) and Mac-side (stale commands)
 #
 # Run from Mac host:
