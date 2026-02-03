@@ -53,7 +53,8 @@ bash openclaw-orbstack-setup.sh
 跳过语言选择提示，直接指定语言：
 
 ```bash
-OPENCLAW_LANG=zh-CN bash openclaw-orbstack-setup.sh   # 中文
+OPENCLAW_LANG=zh-CN bash openclaw-orbstack-setup.sh   # 中文 (简体)
+OPENCLAW_LANG=zh-HK bash openclaw-orbstack-setup.sh   # 粵語 (繁體)
 OPENCLAW_LANG=en bash openclaw-orbstack-setup.sh      # English
 ```
 

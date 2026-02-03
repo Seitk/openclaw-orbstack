@@ -23,6 +23,7 @@
 #   Interactive selection at startup. Skip prompt with:
 #     OPENCLAW_LANG=en bash openclaw-orbstack-setup.sh
 #     OPENCLAW_LANG=zh-CN bash openclaw-orbstack-setup.sh
+#     OPENCLAW_LANG=zh-HK bash openclaw-orbstack-setup.sh
 #
 # Steps (8 total):
 #   1. Check OrbStack
@@ -51,17 +52,19 @@ select_language() {
     fi
 
     echo "" >&2
-    echo "Choose language / 选择语言:" >&2
+    echo "Choose language / 选择语言 / 揀語言:" >&2
     echo "" >&2
     echo "  1) English" >&2
-    echo "  2) 中文" >&2
+    echo "  2) 中文 (简体)" >&2
+    echo "  3) 粵語 (繁體)" >&2
     echo "" >&2
     while true; do
-        read -rp "Enter 1 or 2 / 输入 1 或 2: " choice
+        read -rp "Enter 1, 2 or 3 / 输入 1、2 或 3 / 輸入 1、2 或 3: " choice
         case "$choice" in
             1) echo "en"; return ;;
             2) echo "zh-CN"; return ;;
-            *) echo "  Invalid choice / 无效选择, please enter 1 or 2 / 请输入 1 或 2" >&2 ;;
+            3) echo "zh-HK"; return ;;
+            *) echo "  Invalid choice / 无效选择 / 無效選擇, please enter 1, 2 or 3 / 请输入 1、2 或 3 / 請輸入 1、2 或 3" >&2 ;;
         esac
     done
 }

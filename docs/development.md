@@ -59,7 +59,7 @@ EOF
 - README.md: English
 - docs/README.zh-CN.md: Chinese
 - Code comments: English
-- User-facing script text: Internationalized via `lang/zh-CN.sh` and `lang/en.sh` (use `$MSG_*` variables, never hardcode)
+- User-facing script text: Internationalized via `lang/en.sh`, `lang/zh-CN.sh`, and `lang/zh-HK.sh` (use `$MSG_*` variables, never hardcode)
 
 ## Error Handling
 

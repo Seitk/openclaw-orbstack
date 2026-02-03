@@ -54,7 +54,8 @@ To skip the prompt, set the language via environment variable:
 
 ```bash
 OPENCLAW_LANG=en bash openclaw-orbstack-setup.sh      # English
-OPENCLAW_LANG=zh-CN bash openclaw-orbstack-setup.sh   # Chinese
+OPENCLAW_LANG=zh-CN bash openclaw-orbstack-setup.sh   # Simplified Chinese
+OPENCLAW_LANG=zh-HK bash openclaw-orbstack-setup.sh   # Cantonese (Traditional Chinese)
 ```
 
 ## Access

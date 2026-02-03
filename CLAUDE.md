@@ -22,7 +22,7 @@ Gateway runs directly on VM. Docker containers are the only isolation protecting
 ## Project Structure
 
 - `openclaw-orbstack-setup.sh` — Main entry point (8-step installer, ~715 lines)
-- `lang/en.sh`, `lang/zh-CN.sh` — i18n message strings (`$MSG_*` variables)
+- `lang/en.sh`, `lang/zh-CN.sh`, `lang/zh-HK.sh` — i18n message strings (`$MSG_*` variables)
 - `templates/openclaw.json.example` — Full JSON5 config template
 - `scripts/refresh-mac-commands.sh` — Regenerate `~/bin/openclaw-*` wrappers
 - `docs/` — Architecture, commands, config guide, troubleshooting, sandbox, dev guide
@@ -78,7 +78,7 @@ No automated test suite. Validation is syntax checks + shellcheck + manual testi
 
 ### i18n
 - All user-facing text goes through `lang/*.sh` message strings
-- `OPENCLAW_LANG` env var selects language (`en` or `zh-CN`)
+- `OPENCLAW_LANG` env var selects language (`en`, `zh-CN`, or `zh-HK`)
 - Falls back to English if language file missing
 
 ## Anti-Patterns (avoid these)
